@@ -1,0 +1,20 @@
+{
+  "name": "snake3d",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "3D Snake game on a spherical planet, built with Three.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node scripts/logic-test.mjs"
+  },
+  "devDependencies": {
+    "puppeteer": "^25.1.0",
+    "vite": "^5.4.0"
+  },
+  "dependencies": {
+    "three": "^0.169.0"
+  }
+}

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Snake 3D — Planeta</title>
+    <link rel="stylesheet" href="./src/ui/hud.css" />
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+
+    <!-- HUD -->
+    <div id="hud" class="panel">
+      <div class="hud-title">SCORE</div>
+      <div id="hud-score" class="hud-score">0</div>
+      <ul class="hud-stats">
+        <li><span>Comprimento</span><b id="hud-length">3</b></li>
+        <li><span>Velocidade</span><b id="hud-speed">1.0×</b></li>
+        <li><span>Recorde</span><b id="hud-best">0</b></li>
+      </ul>
+    </div>
+
+    <!-- Start / Game over overlay -->
+    <div id="overlay" class="overlay">
+      <div class="overlay-card">
+        <div id="overlay-eyebrow" class="overlay-eyebrow">SNAKE 3D</div>
+        <div id="overlay-title" class="overlay-title">Planeta</div>
+        <div id="overlay-score" class="overlay-bigscore" hidden>0</div>
+        <div id="overlay-summary" class="overlay-summary" hidden>
+          <div><span id="overlay-best">0</span><label>Recorde</label></div>
+          <div><span id="overlay-len">0</span><label>Comprimento</label></div>
+        </div>
+        <p id="overlay-hint" class="overlay-hint">Use ← → (ou A / D) para virar. Toque na esquerda/direita no celular.</p>
+        <button id="overlay-btn" class="overlay-btn">Jogar</button>
+      </div>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
