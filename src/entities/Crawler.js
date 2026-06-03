@@ -28,6 +28,12 @@ export class Crawler {
     this.taperTail = opts.taperTail ?? 0.25;
     this.surfaceLift = this.thickness * 0.7;
 
+    // Slithering undulation (lateral wave that travels along the body).
+    this.waveAmp = opts.waveAmp ?? 0;
+    this.waveFreq = opts.waveFreq ?? 0.5;
+    this.waveSpeed = opts.waveSpeed ?? 6;
+    this._wavePhase = Math.random() * Math.PI * 2;
+
     this.group = new THREE.Group();
     this.segments = [];
 
@@ -72,6 +78,7 @@ export class Crawler {
 
   /** Advance one frame given a steering value in [-1, 1]. */
   step(dt, steer) {
+    this._wavePhase += dt * this.waveSpeed;
     if (steer !== 0) turn(this.position, this.heading, steer * this.turnRate * dt);
     advance(this.position, this.heading, this.speed * dt);
 
@@ -114,6 +121,22 @@ export class Crawler {
     // Build continuous tube through the (lifted) segment points.
     const lift = this.radius + this.surfaceLift;
     const pts = this.segments.map((u) => u.clone().multiplyScalar(lift));
+
+    // Apply a lateral slither wave: offset each point sideways (within the
+    // tangent plane), with the wave travelling head→tail over time.
+    if (this.waveAmp > 0 && pts.length > 2) {
+      const n = pts.length;
+      const dir = new THREE.Vector3();
+      const side = new THREE.Vector3();
+      for (let i = 1; i < n; i++) {
+        dir.copy(pts[i - 1]).sub(pts[i]).normalize(); // toward head
+        side.crossVectors(this.segments[i], dir).normalize();
+        const headFade = Math.min(1, i / 3);
+        const wave = Math.sin(this._wavePhase - i * this.waveFreq);
+        pts[i].addScaledVector(side, this.waveAmp * wave * headFade);
+      }
+    }
+
     this.body.update(pts, this.thickness, this.taperTail);
 
     // Head sphere sits at the front, oriented along heading.

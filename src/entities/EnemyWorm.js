@@ -28,6 +28,9 @@ export class EnemyWorm extends Crawler {
       thickness: 0.42,
       taperTail: 0.2,
       radialSegments: 10,
+      waveAmp: 0.26,
+      waveFreq: 0.6,
+      waveSpeed: 8,
       bodyMaterial: bodyMat,
       headMaterial: headMat,
     });
