@@ -181,13 +181,13 @@ html, body {
 }
 
 .overlay-title {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 700;
-  margin: 4px 0 14px;
+  margin: 4px 0 12px;
 }
 
 .overlay-bigscore {
-  font-size: 64px;
+  font-size: 60px;
   font-weight: 800;
   color: #fff;
   line-height: 1;
@@ -203,7 +203,7 @@ html, body {
 
 .overlay-summary span {
   display: block;
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
 }
 
@@ -367,6 +367,10 @@ html, body {
   color: var(--text-dim);
   margin: 12px 0 18px;
   line-height: 1.55;
+}
+
+.overlay-hint b {
+  color: var(--text);
 }
 
 .overlay-btn {
