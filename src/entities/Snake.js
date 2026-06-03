@@ -1,27 +1,19 @@
 import * as THREE from 'three';
 import { arcDistance } from '../core/SphereMath.js';
 import { Crawler } from './Crawler.js';
+import { makeSkinMaterials, getBandColor, SKINS } from './SnakeSkins.js';
 
 /**
- * The player snake: a continuous, slithering tube crawling on the planet, with
- * a brighter head, eyes, growth on eating, self-collision, and three abilities:
- *   - shield  : brief invincibility (blue bubble)
- *   - turbo   : brief speed boost (hotter glow)
- *   - jump    : hop off the surface, passing over hazards (Space)
+ * Player-controlled snake: continuous tube body + head, with:
+ *   - Skin presets (cosmic, emerald, coral, blue, cobra)
+ *   - Shield (translucent bubble — invincibility for N seconds)
+ *   - Turbo (speed boost + hotter glow)
+ *   - Jump (parabolic hop over hazards / self — Space)
+ *   - Self-collision detection
  */
 export class Snake extends Crawler {
-  constructor(radius) {
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: 0x2fd6c4,
-      emissive: 0x17c4b2,
-      emissiveIntensity: 1.05,
-      roughness: 0.22,
-      metalness: 0.0,
-    });
-    const headMat = bodyMat.clone();
-    headMat.color = new THREE.Color(0x6cffe9);
-    headMat.emissive = new THREE.Color(0x2fe6d2);
-    headMat.emissiveIntensity = 1.35;
+  constructor(radius, skinKey = 'cosmic') {
+    const { bodyMat, headMat } = makeSkinMaterials(skinKey);
 
     super(radius, {
       speed: 0.6,
@@ -29,7 +21,7 @@ export class Snake extends Crawler {
       segmentSpacing: 0.045,
       segmentCount: 14,
       thickness: 0.6,
-      taperTail: 0.18,
+      taperTail: 0.14,   // taper more aggressively — thinner body vs head
       radialSegments: 14,
       waveAmp: 0.32,
       waveFreq: 0.55,
@@ -38,10 +30,23 @@ export class Snake extends Crawler {
       headMaterial: headMat,
     });
 
+    this.skinKey = skinKey;
+
+    // Wire up vertex-color band function if the skin has bands
+    const skin = SKINS[skinKey];
+    if (skin && skin.bands) {
+      this.body.getColor = (t, c) => {
+        const bands = skin.bands;
+        const phase = (t / skin.bandLength) % bands.length;
+        const idx = Math.floor(phase) % bands.length;
+        c.setHex(bands[idx]);
+      };
+    }
+
     this.baseSpeed = this.speed;
     this._baseLift = this.surfaceLift;
-    this._bodyEmissive = bodyMat.emissiveIntensity;
-    this._headEmissive = headMat.emissiveIntensity;
+    this._bodyEmissiveBase = bodyMat.emissiveIntensity;
+    this._headEmissiveBase = headMat.emissiveIntensity;
 
     this.alive = true;
     this.shield = false;
@@ -56,12 +61,29 @@ export class Snake extends Crawler {
   }
 
   _addEyes() {
-    const eyeGeo = new THREE.SphereGeometry(0.16, 12, 12);
-    const eyeMat = new THREE.MeshStandardMaterial({ color: 0x041414, roughness: 0.35 });
+    const eyeGeo = new THREE.SphereGeometry(0.15, 12, 12);
+    const eyeMat = new THREE.MeshStandardMaterial({
+      color: 0x050e0e,
+      roughness: 0.3,
+      metalness: 0.1,
+    });
+    // glossy pupil highlight
+    const pupilGeo = new THREE.SphereGeometry(0.07, 8, 8);
+    const pupilMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.5 });
+
     this.eyeL = new THREE.Mesh(eyeGeo, eyeMat);
     this.eyeR = new THREE.Mesh(eyeGeo, eyeMat);
-    this.eyeL.position.set(-0.42, 0.34, 0.72);
-    this.eyeR.position.set(0.42, 0.34, 0.72);
+    // position in head-local space (x=lateral, y=up, z=forward)
+    this.eyeL.position.set(-0.55, 0.28, 0.75);
+    this.eyeR.position.set(0.55, 0.28, 0.75);
+
+    const pl = new THREE.Mesh(pupilGeo, pupilMat);
+    const pr = new THREE.Mesh(pupilGeo, pupilMat);
+    pl.position.set(0.06, 0.06, 0.1);
+    pr.position.set(-0.06, 0.06, 0.1);
+    this.eyeL.add(pl);
+    this.eyeR.add(pr);
+
     this.headMesh.add(this.eyeL, this.eyeR);
   }
 
@@ -100,7 +122,6 @@ export class Snake extends Crawler {
     return this._jumpT > 0;
   }
 
-  /** Invincible to enemies + self while shielded or mid-jump. */
   get invincible() {
     return this.shield || this.isJumping;
   }
@@ -119,8 +140,8 @@ export class Snake extends Crawler {
 
   setTurbo(on) {
     this.turbo = on;
-    this.bodyMat.emissiveIntensity = on ? this._bodyEmissive * 1.8 : this._bodyEmissive;
-    this.headMat.emissiveIntensity = on ? this._headEmissive * 1.6 : this._headEmissive;
+    this.bodyMat.emissiveIntensity = on ? this._bodyEmissiveBase * 1.8 : this._bodyEmissiveBase;
+    this.headMat.emissiveIntensity = on ? this._headEmissiveBase * 1.6 : this._headEmissiveBase;
   }
 
   update(dt, steer) {
@@ -128,7 +149,6 @@ export class Snake extends Crawler {
 
     if (this._jumpCooldown > 0) this._jumpCooldown -= dt;
 
-    // Parabolic hop: lift the whole body off the surface and back down.
     if (this._jumpT > 0) {
       this._jumpT = Math.max(0, this._jumpT - dt);
       const progress = 1 - this._jumpT / this.jumpDuration;
@@ -158,7 +178,6 @@ export class Snake extends Crawler {
     this.segmentCount += Math.max(1, Math.round(amount));
   }
 
-  /** Self-collision: head overlapping a non-adjacent body segment. */
   checkSelfCollision() {
     if (this.invincible) return false;
     if (!this.segments || this.segments.length < 9) return false;

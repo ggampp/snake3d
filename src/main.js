@@ -17,10 +17,10 @@ import { Leaderboard } from './core/Leaderboard.js';
 import { Hud } from './ui/Hud.js';
 
 const PLANET_RADIUS = 20;
-const MAX_ENEMIES = 6;
-const BASE_ENEMIES = 2;
-const SHIELD_TIME = 6;
-const TURBO_TIME = 5;
+const MAX_ENEMIES   = 6;
+const BASE_ENEMIES  = 2;
+const SHIELD_TIME   = 6;
+const TURBO_TIME    = 5;
 
 class Game {
   constructor() {
@@ -29,18 +29,19 @@ class Game {
     this._initScene();
     this._initPost();
 
-    this.input = new Input(this.canvas);
-    this.audio = new AudioFx();
+    this.input       = new Input(this.canvas);
+    this.audio       = new AudioFx();
     this.leaderboard = new Leaderboard();
-    this.hud = new Hud();
+    this.hud         = new Hud();
     this.hud.setMuted(this.audio.muted);
 
-    this.state = 'menu';
-    this.score = 0;
+    this.state         = 'menu';
+    this.score         = 0;
+    this.kills         = 0;
     this.activeEnemies = BASE_ENEMIES;
-    this.shieldUntil = 0;
-    this.turboUntil = 0;
-    this._board = [];
+    this.shieldUntil   = 0;
+    this.turboUntil    = 0;
+    this._board        = [];
 
     this._wireControls();
 
@@ -60,7 +61,7 @@ class Game {
       this.start();
     };
     this.hud.onMuteToggle = () => this.hud.setMuted(this.audio.toggleMute());
-    this.hud.onZoom = (d) => this.chase.addZoom(d);
+    this.hud.onZoom       = (d) => this.chase.addZoom(d);
 
     this.input.onConfirm = () => {
       this.audio.resume();
@@ -91,14 +92,15 @@ class Game {
   }
 
   _initScene() {
-    this.scene = new THREE.Scene();
+    this.scene  = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1000);
 
     this.planet = new Planet(PLANET_RADIUS);
     this.scene.add(this.planet.group);
     this.sky = new Sky();
     this.scene.add(this.sky.group);
-    this.grass = new Grass(PLANET_RADIUS * 1.005, 1400);
+    // Grass slightly above planet surface; snake surfaceLift clears it
+    this.grass = new Grass(PLANET_RADIUS * 1.001, 1800);
     this.planet.group.add(this.grass.mesh);
 
     const sun = new THREE.DirectionalLight(0xfff1dc, 2.0);
@@ -109,9 +111,11 @@ class Game {
     rim.position.set(-30, -10, -20);
     this.scene.add(rim);
 
-    this.snake = new Snake(PLANET_RADIUS);
+    const skinKey = localStorage.getItem('snake3d.skin') || 'cosmic';
+    this.snake = new Snake(PLANET_RADIUS, skinKey);
     this.scene.add(this.snake.group);
-    this.energy = new EnergyField(PLANET_RADIUS);
+
+    this.energy   = new EnergyField(PLANET_RADIUS);
     this.scene.add(this.energy.group);
     this.powerups = new PowerUpField(PLANET_RADIUS);
     this.scene.add(this.powerups.group);
@@ -129,7 +133,8 @@ class Game {
   }
 
   _setMenuView() {
-    this.camera.position.set(0, 6, 42);
+    // Far view so the full planet is visible from the menu
+    this.camera.position.set(0, 8, 58);
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(0, 0, 0);
   }
@@ -139,9 +144,7 @@ class Game {
     this.composer.addPass(new RenderPass(this.scene, this.camera));
     this.bloom = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.55,
-      0.6,
-      0.5
+      0.55, 0.6, 0.5
     );
     this.composer.addPass(this.bloom);
   }
@@ -153,15 +156,25 @@ class Game {
   }
 
   start() {
-    this.score = 0;
+    // Rebuild snake if skin changed
+    const skinKey = this.hud.getSkin();
+    if (this.snake.skinKey !== skinKey) {
+      this.scene.remove(this.snake.group);
+      this.snake = new Snake(PLANET_RADIUS, skinKey);
+      this.scene.add(this.snake.group);
+    }
+
+    this.score  = 0;
+    this.kills  = 0;
     this.hud.setScore(0);
     this.hud.setPowerups({});
+    this.hud.setStats({ kills: 0 });
     this.snake.reset();
     this.chase.reset();
     this.energy.reset();
     this.powerups.reset();
     this.shieldUntil = 0;
-    this.turboUntil = 0;
+    this.turboUntil  = 0;
 
     this.activeEnemies = BASE_ENEMIES;
     this.enemies.forEach((worm, i) => {
@@ -187,7 +200,6 @@ class Game {
     this.hud.showGameOver(this.score, this.snake.segmentCount, this._board);
     this._setMenuView();
 
-    // Submit asynchronously, then refresh the displayed board.
     this.leaderboard.submit(this.hud.getName(), this.score).then((top) => {
       if (top && top.length) this._board = top;
       this.hud.renderBoard(this._board, undefined, this.score);
@@ -201,7 +213,7 @@ class Game {
     if (this.state === 'playing') {
       const now = this.clock.elapsedTime;
       const shieldRemain = Math.max(0, this.shieldUntil - now);
-      const turboRemain = Math.max(0, this.turboUntil - now);
+      const turboRemain  = Math.max(0, this.turboUntil  - now);
       this.snake.setShield(shieldRemain > 0);
       this.snake.setTurbo(turboRemain > 0);
 
@@ -210,7 +222,6 @@ class Game {
 
       const headR = this.snake.thickness * 1.05;
 
-      // Energy orbs → proportional growth + sound.
       this.energy.update(dt, this.snake.position, headR, (growth, score) => {
         this.score += score;
         this.snake.grow(growth);
@@ -218,20 +229,17 @@ class Game {
         this.hud.setScore(this.score);
       });
 
-      // Power-ups → shield / turbo.
       this.powerups.update(dt, this.snake.position, headR, (type) => {
         if (type === 'shield') this.shieldUntil = now + SHIELD_TIME;
-        else this.turboUntil = now + TURBO_TIME;
+        else                   this.turboUntil  = now + TURBO_TIME;
         this.audio.powerup(type);
       });
 
-      // Progressive difficulty: more + faster enemies as the score climbs.
-      const desired = Math.min(MAX_ENEMIES, BASE_ENEMIES + Math.floor(this.score / 6));
-      while (this.activeEnemies < desired) {
-        this._activateEnemy(this.activeEnemies);
-        this.activeEnemies++;
-      }
+      const desired   = Math.min(MAX_ENEMIES, BASE_ENEMIES + Math.floor(this.score / 6));
       const wormSpeed = Math.min(0.92, 0.42 + this.score * 0.004);
+      while (this.activeEnemies < desired) {
+        this._activateEnemy(this.activeEnemies++);
+      }
       for (let i = 0; i < this.activeEnemies; i++) {
         const worm = this.enemies[i];
         worm.speed = wormSpeed;
@@ -244,7 +252,8 @@ class Game {
 
       this.hud.setStats({
         length: this.snake.segmentCount,
-        speed: this.snake.speed / this.snake.baseSpeed,
+        speed:  this.snake.speed / this.snake.baseSpeed,
+        kills:  this.kills,
       });
       this.hud.setPowerups({ shield: shieldRemain, turbo: turboRemain });
 
@@ -253,7 +262,6 @@ class Game {
         this.chase.update(dt, this.snake.position, this.snake.heading);
       }
     } else {
-      // Menu / game over: keep the world gently alive behind the overlay.
       for (let i = 0; i < this.activeEnemies; i++) this.enemies[i].update(dt);
       this.energy.update(dt, null, 0, () => {});
       this.powerups.update(dt, null, 0, () => {});

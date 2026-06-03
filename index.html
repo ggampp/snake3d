@@ -17,6 +17,7 @@
         <li><span>Comprimento</span><b id="hud-length">14</b></li>
         <li><span>Velocidade</span><b id="hud-speed">1.0×</b></li>
         <li><span>Recorde</span><b id="hud-best">0</b></li>
+        <li><span>Abates</span><b id="hud-kills">0</b></li>
       </ul>
       <div id="hud-powerups" class="hud-powerups"></div>
     </div>
@@ -41,6 +42,19 @@
         <div id="overlay-summary" class="overlay-summary" hidden>
           <div><span id="overlay-best">0</span><label>Recorde</label></div>
           <div><span id="overlay-len">0</span><label>Comprimento</label></div>
+        </div>
+
+        <!-- Skin selector -->
+        <div id="skin-picker" class="skin-picker">
+          <div class="skin-label">Cobra</div>
+          <div class="skin-options">
+            <button class="skin-btn active" data-skin="cosmic"    style="--sc:#2fd6c4" title="Serpente Cósmica">🔵</button>
+            <button class="skin-btn"        data-skin="emerald"   style="--sc:#2a8a3e" title="Jiboia Esmeralda">🟢</button>
+            <button class="skin-btn"        data-skin="coral"     style="--sc:#cc2222" title="Cobra Coral">🔴</button>
+            <button class="skin-btn"        data-skin="blue"      style="--sc:#1a4db8" title="Serpente Azul">💙</button>
+            <button class="skin-btn"        data-skin="cobra"     style="--sc:#8b6820" title="Cobra Real">👑</button>
+          </div>
+          <div id="skin-name" class="skin-name">Serpente Cósmica</div>
         </div>
 
         <div class="name-row">

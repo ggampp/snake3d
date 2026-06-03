@@ -2,24 +2,23 @@ import * as THREE from 'three';
 
 /**
  * Third-person chase camera. Sits behind and above the snake head, smoothly
- * trailing its position and heading so the planet curves away ahead — the
- * look from the reference video.
+ * trailing its position and heading so the planet curves away ahead.
  *
  * `zoom` scales how far back/up the camera sits, letting the player pull out to
- * see more of the planet. It is clamped and persisted to localStorage.
+ * see more of the planet. Persisted to localStorage so it survives refreshes.
  */
 export class ChaseCamera {
   constructor(camera, radius) {
     this.camera = camera;
     this.radius = radius;
 
-    this.baseDistance = 4.0;
-    this.baseHeight = 3.2;
+    this.baseDistance = 4.5;
+    this.baseHeight = 3.8;
     this.baseLookAhead = 2.5;
     this.smooth = 4.0;
 
     this.minZoom = 0.7;
-    this.maxZoom = 3.2;
+    this.maxZoom = 5.5;   // far enough to see most of the hemisphere
     this.zoom = this._loadZoom();
 
     this._pos = new THREE.Vector3();
@@ -29,7 +28,9 @@ export class ChaseCamera {
 
   _loadZoom() {
     const z = parseFloat(localStorage.getItem('snake3d.zoom'));
-    return Number.isFinite(z) ? Math.min(this.maxZoom, Math.max(this.minZoom, z)) : 1.0;
+    // Default to 3.5 (nicely far out) on first play
+    const def = 3.5;
+    return Number.isFinite(z) ? Math.min(this.maxZoom, Math.max(this.minZoom, z)) : def;
   }
 
   setZoom(z) {
@@ -42,18 +43,12 @@ export class ChaseCamera {
     return this.setZoom(this.zoom + delta);
   }
 
-  /**
-   * @param {THREE.Vector3} headUnit  unit position of head
-   * @param {THREE.Vector3} headingUnit  unit tangent heading
-   */
   update(dt, headUnit, headingUnit) {
     const surface = headUnit.clone().multiplyScalar(this.radius);
     const normal = headUnit;
 
-    // Distance/height grow with zoom; height a touch faster so you look down
-    // on more of the planet as you pull out.
     const distance = this.baseDistance * this.zoom;
-    const height = this.baseHeight * Math.pow(this.zoom, 1.15);
+    const height = this.baseHeight * Math.pow(this.zoom, 1.2);
 
     const desired = surface
       .clone()
