@@ -4,20 +4,42 @@ import * as THREE from 'three';
  * Third-person chase camera. Sits behind and above the snake head, smoothly
  * trailing its position and heading so the planet curves away ahead — the
  * look from the reference video.
+ *
+ * `zoom` scales how far back/up the camera sits, letting the player pull out to
+ * see more of the planet. It is clamped and persisted to localStorage.
  */
 export class ChaseCamera {
   constructor(camera, radius) {
     this.camera = camera;
     this.radius = radius;
 
-    this.distance = 4.0; // how far behind the head (world units)
-    this.height = 3.2; // how far above the surface
-    this.lookAhead = 2.5; // aim point ahead of the head
-    this.smooth = 4.0; // follow stiffness
+    this.baseDistance = 4.0;
+    this.baseHeight = 3.2;
+    this.baseLookAhead = 2.5;
+    this.smooth = 4.0;
+
+    this.minZoom = 0.7;
+    this.maxZoom = 3.2;
+    this.zoom = this._loadZoom();
 
     this._pos = new THREE.Vector3();
     this._look = new THREE.Vector3();
     this._initialized = false;
+  }
+
+  _loadZoom() {
+    const z = parseFloat(localStorage.getItem('snake3d.zoom'));
+    return Number.isFinite(z) ? Math.min(this.maxZoom, Math.max(this.minZoom, z)) : 1.0;
+  }
+
+  setZoom(z) {
+    this.zoom = Math.min(this.maxZoom, Math.max(this.minZoom, z));
+    localStorage.setItem('snake3d.zoom', this.zoom.toFixed(2));
+    return this.zoom;
+  }
+
+  addZoom(delta) {
+    return this.setZoom(this.zoom + delta);
   }
 
   /**
@@ -26,18 +48,21 @@ export class ChaseCamera {
    */
   update(dt, headUnit, headingUnit) {
     const surface = headUnit.clone().multiplyScalar(this.radius);
-    const normal = headUnit; // outward
+    const normal = headUnit;
 
-    // Desired camera position: behind the head along -heading, lifted by normal.
+    // Distance/height grow with zoom; height a touch faster so you look down
+    // on more of the planet as you pull out.
+    const distance = this.baseDistance * this.zoom;
+    const height = this.baseHeight * Math.pow(this.zoom, 1.15);
+
     const desired = surface
       .clone()
-      .addScaledVector(headingUnit, -this.distance)
-      .addScaledVector(normal, this.height);
+      .addScaledVector(headingUnit, -distance)
+      .addScaledVector(normal, height);
 
-    // Aim a bit ahead of the head, near the surface.
     const lookTarget = surface
       .clone()
-      .addScaledVector(headingUnit, this.lookAhead)
+      .addScaledVector(headingUnit, this.baseLookAhead)
       .addScaledVector(normal, 0.4);
 
     if (!this._initialized) {
@@ -51,7 +76,7 @@ export class ChaseCamera {
     }
 
     this.camera.position.copy(this._pos);
-    this.camera.up.copy(normal); // keep "up" aligned to the surface
+    this.camera.up.copy(normal);
     this.camera.lookAt(this._look);
   }
 

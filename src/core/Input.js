@@ -35,8 +35,10 @@ export class Input {
     this.dom.addEventListener('mousedown', this._onMouseDown);
     window.addEventListener('mouseup', this._onMouseUp);
 
-    /** Optional callback fired on any "confirm" key (Space/Enter). */
-    this.onConfirm = null;
+    /** Optional callbacks. */
+    this.onConfirm = null; // Enter
+    this.onJump = null; // Space
+    this.onZoom = null; // (delta) from +/- and [ ]
   }
 
   _key(e, down) {
@@ -50,8 +52,21 @@ export class Input {
         this.right = down;
         break;
       case 'Space':
+        e.preventDefault();
+        if (down && this.onJump) this.onJump();
+        break;
       case 'Enter':
         if (down && this.onConfirm) this.onConfirm();
+        break;
+      case 'Equal':
+      case 'NumpadAdd':
+      case 'BracketLeft': // pull camera in (closer)
+        if (down && this.onZoom) this.onZoom(-0.25);
+        break;
+      case 'Minus':
+      case 'NumpadSubtract':
+      case 'BracketRight': // push camera out (farther)
+        if (down && this.onZoom) this.onZoom(+0.25);
         break;
     }
   }

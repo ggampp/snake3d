@@ -14,10 +14,21 @@
       <div class="hud-title">SCORE</div>
       <div id="hud-score" class="hud-score">0</div>
       <ul class="hud-stats">
-        <li><span>Comprimento</span><b id="hud-length">3</b></li>
+        <li><span>Comprimento</span><b id="hud-length">14</b></li>
         <li><span>Velocidade</span><b id="hud-speed">1.0×</b></li>
         <li><span>Recorde</span><b id="hud-best">0</b></li>
       </ul>
+      <div id="hud-powerups" class="hud-powerups"></div>
+    </div>
+
+    <!-- Top-right controls -->
+    <div id="controls" class="controls">
+      <button id="btn-mute" class="ctl" title="Som (M)">🔊</button>
+      <div class="ctl-zoom">
+        <button id="btn-zoom-out" class="ctl" title="Ver mais longe (-)">−</button>
+        <span class="ctl-label">Visão</span>
+        <button id="btn-zoom-in" class="ctl" title="Aproximar (+)">+</button>
+      </div>
     </div>
 
     <!-- Start / Game over overlay -->
@@ -26,11 +37,25 @@
         <div id="overlay-eyebrow" class="overlay-eyebrow">SNAKE 3D</div>
         <div id="overlay-title" class="overlay-title">Planeta</div>
         <div id="overlay-score" class="overlay-bigscore" hidden>0</div>
+
         <div id="overlay-summary" class="overlay-summary" hidden>
           <div><span id="overlay-best">0</span><label>Recorde</label></div>
           <div><span id="overlay-len">0</span><label>Comprimento</label></div>
         </div>
-        <p id="overlay-hint" class="overlay-hint">Use ← → (ou A / D) para virar. Toque na esquerda/direita no celular.</p>
+
+        <div class="name-row">
+          <label for="player-name">Nome</label>
+          <input id="player-name" maxlength="14" placeholder="Você" autocomplete="off" />
+        </div>
+
+        <div class="board">
+          <div class="board-title">🏆 Placar <span id="board-mode" class="board-mode">local</span></div>
+          <ol id="board-list" class="board-list"><li class="board-empty">Sem pontuações ainda</li></ol>
+        </div>
+
+        <p id="overlay-hint" class="overlay-hint">
+          ← → ou A/D para virar · <b>Espaço</b> pula · <b>+/−</b> ajusta a visão · toque nas laterais no celular.
+        </p>
         <button id="overlay-btn" class="overlay-btn">Jogar</button>
       </div>
     </div>
