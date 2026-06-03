@@ -45,10 +45,11 @@ const result = await page.evaluate(async () => {
       // Translate into a steer key state.
       g.input.left = sign > 0 && ang > 0.05;
       g.input.right = sign < 0 && ang > 0.05;
+      g.input.up = true; // hold "move forward" (snake no longer auto-advances)
 
       if (g.score >= 8 || frames > 1600) {
         clearInterval(id);
-        g.input.left = g.input.right = false;
+        g.input.left = g.input.right = g.input.up = false;
         resolve({ score: g.score, startLen, len: g.snake.segmentCount, frames });
       }
     }, 16);

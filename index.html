@@ -32,6 +32,17 @@
       </div>
     </div>
 
+    <!-- On-screen move button (mobile / mouse): hold to advance -->
+    <button id="btn-forward" class="btn-forward" title="Mover (↑)">▲</button>
+
+    <!-- Pause overlay -->
+    <div id="pause-overlay" class="pause-overlay hidden">
+      <div class="pause-card">
+        <div class="pause-title">⏸ Pausado</div>
+        <div class="pause-sub">Pressione <b>P</b> para continuar</div>
+      </div>
+    </div>
+
     <!-- Start / Game over overlay -->
     <div id="overlay" class="overlay">
       <div class="overlay-card">
@@ -68,7 +79,8 @@
         </div>
 
         <p id="overlay-hint" class="overlay-hint">
-          ← → ou A/D para virar · <b>Espaço</b> pula · <b>+/−</b> ajusta a visão · toque nas laterais no celular.
+          <b>↑</b> (ou W) segura para andar · <b>← →</b> / A/D viram · <b>Espaço</b> pula ·
+          <b>P</b> pausa · <b>+/−</b> ajusta a visão · no celular, toque para mover e use as laterais para virar.
         </p>
         <button id="overlay-btn" class="overlay-btn">Jogar</button>
       </div>

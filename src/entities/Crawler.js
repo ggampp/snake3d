@@ -81,17 +81,21 @@ export class Crawler {
     this._render();
   }
 
-  step(dt, steer) {
-    this._wavePhase += dt * this.waveSpeed;
+  step(dt, steer, moving = true) {
+    // Steering always works; advancing + slithering only while moving.
     if (steer !== 0) turn(this.position, this.heading, steer * this.turnRate * dt);
-    advance(this.position, this.heading, this.speed * dt);
 
-    this.path.push(this.position.clone());
-    const maxPath =
-      (this.segmentCount + 30) *
-        Math.ceil(this.segmentSpacing / (this.speed * dt + 1e-5)) +
-      200;
-    if (this.path.length > maxPath) this.path.splice(0, this.path.length - maxPath);
+    if (moving) {
+      this._wavePhase += dt * this.waveSpeed;
+      advance(this.position, this.heading, this.speed * dt);
+
+      this.path.push(this.position.clone());
+      const maxPath =
+        (this.segmentCount + 30) *
+          Math.ceil(this.segmentSpacing / (this.speed * dt + 1e-5)) +
+        200;
+      if (this.path.length > maxPath) this.path.splice(0, this.path.length - maxPath);
+    }
 
     this._layout();
     this._render();
@@ -138,6 +142,9 @@ export class Crawler {
       }
     }
 
+    // Optional local radius modulation (e.g. a "swallow" bulge travelling down
+    // the body). Subclasses set `_radiusScaleFn(t) -> multiplier`.
+    this.body.getRadiusScale = this._radiusScaleFn || null;
     this.body.update(pts, this.thickness, this.taperTail);
 
     // Orient head: right=lateral, up=surface-normal, forward=heading

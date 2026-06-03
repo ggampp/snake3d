@@ -1,15 +1,20 @@
 /**
- * Steering input. Produces a turn signal in [-1, 1]:
- *   +1 = turning one way, -1 = the other. The snake auto-advances.
- * Supports keyboard (arrows / A,D) and touch (tap left/right half of screen).
+ * Steering + movement input. Produces:
+ *   - `steer`   : turn signal in [-1, 1] (left/right)
+ *   - `forward` : whether the snake should advance (hold Up / W, on-screen ▲,
+ *                 or touch on the screen)
+ * Plus discrete callbacks for jump, pause, confirm and zoom.
  */
 export class Input {
   constructor(domElement) {
     this.dom = domElement;
     this.left = false;
     this.right = false;
+    this.up = false;
     this._touchLeft = false;
     this._touchRight = false;
+    this._touchMove = false;
+    this._btnForward = false;
 
     this._onKeyDown = (e) => this._key(e, true);
     this._onKeyUp = (e) => this._key(e, false);
@@ -20,17 +25,19 @@ export class Input {
     this._onTouchEnd = () => {
       this._touchLeft = false;
       this._touchRight = false;
+      this._touchMove = false;
     };
     this.dom.addEventListener('touchstart', this._onTouchStart, { passive: true });
     this.dom.addEventListener('touchmove', this._onTouchStart, { passive: true });
     this.dom.addEventListener('touchend', this._onTouchEnd);
     this.dom.addEventListener('touchcancel', this._onTouchEnd);
 
-    // Mouse fallback (click-and-hold left/right half).
+    // Mouse fallback (click-and-hold left/right half also moves forward).
     this._onMouseDown = (e) => this._mouse(e, true);
     this._onMouseUp = () => {
       this._touchLeft = false;
       this._touchRight = false;
+      this._touchMove = false;
     };
     this.dom.addEventListener('mousedown', this._onMouseDown);
     window.addEventListener('mouseup', this._onMouseUp);
@@ -38,7 +45,25 @@ export class Input {
     /** Optional callbacks. */
     this.onConfirm = null; // Enter
     this.onJump = null; // Space
+    this.onPause = null; // P
     this.onZoom = null; // (delta) from +/- and [ ]
+  }
+
+  /** Bind an on-screen "move forward" button (press-and-hold). */
+  bindForwardButton(el) {
+    if (!el) return;
+    const down = (e) => {
+      e.preventDefault();
+      this._btnForward = true;
+    };
+    const up = () => {
+      this._btnForward = false;
+    };
+    el.addEventListener('mousedown', down);
+    el.addEventListener('touchstart', down, { passive: false });
+    window.addEventListener('mouseup', up);
+    el.addEventListener('touchend', up);
+    el.addEventListener('touchcancel', up);
   }
 
   _key(e, down) {
@@ -51,9 +76,17 @@ export class Input {
       case 'KeyD':
         this.right = down;
         break;
+      case 'ArrowUp':
+      case 'KeyW':
+        e.preventDefault();
+        this.up = down;
+        break;
       case 'Space':
         e.preventDefault();
         if (down && this.onJump) this.onJump();
+        break;
+      case 'KeyP':
+        if (down && this.onPause) this.onPause();
         break;
       case 'Enter':
         if (down && this.onConfirm) this.onConfirm();
@@ -75,6 +108,7 @@ export class Input {
     const w = window.innerWidth;
     this._touchLeft = false;
     this._touchRight = false;
+    this._touchMove = e.touches.length > 0; // any touch on the canvas = move
     for (const t of e.touches) {
       if (t.clientX < w / 2) this._touchLeft = true;
       else this._touchRight = true;
@@ -83,6 +117,7 @@ export class Input {
 
   _mouse(e, down) {
     if (!down) return;
+    this._touchMove = true;
     if (e.clientX < window.innerWidth / 2) this._touchLeft = true;
     else this._touchRight = true;
   }
@@ -92,6 +127,11 @@ export class Input {
     const l = this.left || this._touchLeft ? 1 : 0;
     const r = this.right || this._touchRight ? 1 : 0;
     return l - r;
+  }
+
+  /** True while the snake should advance. */
+  get forward() {
+    return this.up || this._btnForward || this._touchMove;
   }
 
   dispose() {

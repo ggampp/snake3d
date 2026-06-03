@@ -55,6 +55,8 @@ export class Snake extends Crawler {
     this._jumpCooldown = 0;
     this.jumpDuration = 0.62;
     this.jumpHeight = 2.7;
+    this._bulges = [];
+    this._radiusScaleFn = null;
 
     this._addEyes();
     this._addShield();
@@ -113,9 +115,17 @@ export class Snake extends Crawler {
     this._jumpT = 0;
     this._jumpCooldown = 0;
     this.surfaceLift = this._baseLift;
+    this._bulges = [];
+    this._radiusScaleFn = null;
     this.setTurbo(false);
     this.setShield(false);
     this.resetPose();
+  }
+
+  /** Spawn a travelling "swallow" bulge at the head (called when eating). */
+  swallow() {
+    if (!this._bulges) this._bulges = [];
+    this._bulges.push({ t: 0 });
   }
 
   get isJumping() {
@@ -144,7 +154,7 @@ export class Snake extends Crawler {
     this.headMat.emissiveIntensity = on ? this._headEmissiveBase * 1.6 : this._headEmissiveBase;
   }
 
-  update(dt, steer) {
+  update(dt, steer, moving = true) {
     if (!this.alive) return;
 
     if (this._jumpCooldown > 0) this._jumpCooldown -= dt;
@@ -157,8 +167,35 @@ export class Snake extends Crawler {
       this.surfaceLift = this._baseLift;
     }
 
-    this.step(dt, steer);
+    this._updateBulges(dt);
+    this.step(dt, steer, moving);
     this._placeShield();
+  }
+
+  /** Advance swallow bulges head→tail and build the radius-scale function. */
+  _updateBulges(dt) {
+    if (!this._bulges || this._bulges.length === 0) {
+      this._radiusScaleFn = null;
+      return;
+    }
+    const TRAVEL = 0.9; // seconds head→tail
+    for (const b of this._bulges) b.t += dt / TRAVEL;
+    this._bulges = this._bulges.filter((b) => b.t <= 1.05);
+    if (this._bulges.length === 0) {
+      this._radiusScaleFn = null;
+      return;
+    }
+    const bulges = this._bulges;
+    const AMP = 0.55;
+    const WIDTH = 0.07;
+    this._radiusScaleFn = (t) => {
+      let s = 1;
+      for (const b of bulges) {
+        const d = (t - b.t) / WIDTH;
+        s += AMP * Math.exp(-d * d);
+      }
+      return s;
+    };
   }
 
   _placeShield() {

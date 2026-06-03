@@ -142,6 +142,74 @@ html, body {
 .ctl-zoom .ctl { border: 0; background: transparent; }
 .ctl-label { font-size: 11px; color: var(--text-dim); letter-spacing: 0.1em; }
 
+/* ── On-screen move button ─────────────────────────── */
+.btn-forward {
+  position: fixed;
+  right: 22px;
+  bottom: 26px;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  border: 1px solid var(--panel-border);
+  background: var(--panel-bg);
+  color: var(--teal);
+  font-size: 28px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.35);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background 0.1s, transform 0.1s;
+  z-index: 8;
+}
+
+.btn-forward:active {
+  background: rgba(95,245,224,0.22);
+  transform: scale(0.94);
+}
+
+/* ── Pause overlay ─────────────────────────────────── */
+.pause-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4, 8, 18, 0.55);
+  backdrop-filter: blur(3px);
+  z-index: 11;
+  transition: opacity 0.2s ease;
+}
+
+.pause-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.pause-card {
+  text-align: center;
+  padding: 26px 40px;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.pause-title {
+  font-size: 30px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.04em;
+}
+
+.pause-sub {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
 /* ── Overlay ───────────────────────────────────────── */
 .overlay {
   position: fixed;

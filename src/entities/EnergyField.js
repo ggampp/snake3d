@@ -10,7 +10,7 @@ import { randomUnit, arcDistance } from '../core/SphereMath.js';
  * Uses a FIXED pool of meshes/lights so the light count never changes (avoids
  * MeshStandardMaterial shader recompiles when orbs come and go).
  */
-const MAX_ORBS = 7;
+const MAX_ORBS = 12;
 
 export class EnergyField {
   constructor(radius) {
@@ -66,9 +66,27 @@ export class EnergyField {
     orb.energy = 1 + Math.floor(Math.random() * 3); // 1, 2 or 3
     orb.baseRadius = 0.42 + orb.energy * 0.16;
     orb.age = 0;
-    orb.lifetime = 3.2 + Math.random() * 3.0;
+    orb.lifetime = 7.0 + Math.random() * 5.0; // stay available longer
     orb.active = true;
     orb.holder.position.copy(orb.unit).multiplyScalar(this.radius * 1.02);
+  }
+
+  /**
+   * Force-spawn an orb at a specific surface point with a given energy. Used to
+   * turn a destroyed worm's body into a trail of collectible energy. Reuses an
+   * inactive pool slot; returns true if one was available.
+   */
+  spawnAt(unit, energy = 1) {
+    const orb = this.orbs.find((o) => !o.active);
+    if (!orb) return false;
+    orb.unit.copy(unit).normalize();
+    orb.energy = Math.max(1, Math.min(3, Math.round(energy)));
+    orb.baseRadius = 0.42 + orb.energy * 0.16;
+    orb.age = 0;
+    orb.lifetime = 8.0 + Math.random() * 4.0;
+    orb.active = true;
+    orb.holder.position.copy(orb.unit).multiplyScalar(this.radius * 1.02);
+    return true;
   }
 
   /** Eating radius (angular) for an orb, scaled by its size + snake head. */

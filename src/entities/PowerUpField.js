@@ -83,7 +83,7 @@ export class PowerUpField {
     s.ringMat.emissive.setHex(c.emissive);
     s.light.color.setHex(c.color);
     s.age = 0;
-    s.lifetime = 6.5 + Math.random() * 2.5;
+    s.lifetime = 11.0 + Math.random() * 4.0; // stay available longer
     s.active = true;
     s.holder.position.copy(s.unit).multiplyScalar(this.radius * 1.05);
   }

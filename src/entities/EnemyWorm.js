@@ -85,4 +85,20 @@ export class EnemyWorm extends Crawler {
     }
     return false;
   }
+
+  /**
+   * True if any of this worm's segments touches any of the given unit points.
+   * `skip` ignores the first `skip` points (e.g. the player's head region so
+   * only body/"middle" hits count). `extraAngle` adds the other body's radius.
+   */
+  touches(points, extraAngle, skip = 0) {
+    const hitAngle = this.thickness / this.radius + extraAngle;
+    for (let i = 0; i < this.segments.length; i++) {
+      const seg = this.segments[i];
+      for (let j = skip; j < points.length; j++) {
+        if (arcDistance(seg, points[j]) < hitAngle) return true;
+      }
+    }
+    return false;
+  }
 }
