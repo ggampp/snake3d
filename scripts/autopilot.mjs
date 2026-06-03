@@ -26,7 +26,15 @@ const result = await page.evaluate(async () => {
       frames++;
       const head = g.snake.position;
       const heading = g.snake.heading;
-      const food = g.food.unit;
+      // Steer toward the nearest active energy orb.
+      let food = null;
+      let bestD = Infinity;
+      for (const o of g.energy.orbs) {
+        if (!o.active) continue;
+        const d = Math.acos(Math.max(-1, Math.min(1, o.unit.dot(head))));
+        if (d < bestD) { bestD = d; food = o.unit; }
+      }
+      if (!food) { g.input.left = g.input.right = false; return; }
 
       // Desired tangent direction from head toward food along the sphere.
       const toFood = food.clone().addScaledVector(head, -food.dot(head)).normalize();
@@ -38,7 +46,7 @@ const result = await page.evaluate(async () => {
       g.input.left = sign > 0 && ang > 0.05;
       g.input.right = sign < 0 && ang > 0.05;
 
-      if (g.score >= 2 || frames > 1200) {
+      if (g.score >= 8 || frames > 1600) {
         clearInterval(id);
         g.input.left = g.input.right = false;
         resolve({ score: g.score, startLen, len: g.snake.segmentCount, frames });
@@ -47,6 +55,8 @@ const result = await page.evaluate(async () => {
   });
 });
 
+await new Promise((r) => setTimeout(r, 400));
+await page.screenshot({ path: '/tmp/shot_energy.png' });
 console.log('autopilot result:', JSON.stringify(result));
 console.log('grew:', result.len > result.startLen, '| scored:', result.score >= 1);
 console.log('ERRORS:', errors.length ? errors.join(' | ') : 'none');
