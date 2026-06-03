@@ -32,7 +32,7 @@ const ok = (cond, msg) => {
   ok(snake.body.mesh.geometry.attributes.position.count > 0, 'continuous tube geometry built');
 }
 
-// 3. Energy orb: proportional growth on eat.
+// 3. Fruit pickup: proportional growth on eat.
 {
   const snake = new Snake(20);
   const field = new EnergyField(20);
@@ -144,6 +144,7 @@ const ok = (cond, msg) => {
   const ok1 = field.spawnAt(snake.position.clone(), 2);
   const after = field.orbs.filter((o) => o.active).length;
   ok(ok1 && after === before + 1, 'spawnAt activates a pooled orb at a point');
+  ok(field.orbs.find((o) => o.active)?.lifetime === 20, 'spawned fruits remain for 20 seconds');
 }
 
 // 12. Swallow bulge fattens the body locally then clears out.

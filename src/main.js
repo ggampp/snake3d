@@ -17,7 +17,17 @@ import { AudioFx } from './core/Audio.js';
 import { Leaderboard } from './core/Leaderboard.js';
 import { Hud } from './ui/Hud.js';
 
-const PLANET_RADIUS = 20;
+const DEFAULT_PLANET_SIZE = 'medium';
+const PLANET_SIZES = {
+  small: 16,
+  medium: 20,
+  large: 26,
+};
+const MENU_VIEWS = {
+  near: { distance: 46, zoom: 2.2 },
+  normal: { distance: 58, zoom: 3.5 },
+  far: { distance: 72, zoom: 4.8 },
+};
 const MAX_ENEMIES   = 6;
 const BASE_ENEMIES  = 2;
 const SHIELD_TIME   = 6;
@@ -26,6 +36,7 @@ const TURBO_TIME    = 5;
 class Game {
   constructor() {
     this.canvas = document.getElementById('game');
+    this.planetRadius = this._loadPlanetRadius();
     this._initRenderer();
     this._initScene();
     this._initPost();
@@ -63,6 +74,12 @@ class Game {
     };
     this.hud.onMuteToggle = () => this.hud.setMuted(this.audio.toggleMute());
     this.hud.onZoom       = (d) => this.chase.addZoom(d);
+    this.hud.onMenuViewChange = () => this._setMenuView();
+    this.hud.onPlanetSizeChange = () => {
+      if (this.state === 'playing' || this.state === 'paused') return;
+      this._rebuildWorld(this.hud.getPlanetRadius(), this.hud.getSkin());
+      this._setMenuView();
+    };
 
     this.input.onConfirm = () => {
       this.audio.resume();
@@ -109,12 +126,15 @@ class Game {
     this.scene  = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-    this.planet = new Planet(PLANET_RADIUS);
+    this.worldObjects = [];
+
+    this.planet = new Planet(this.planetRadius);
     this.scene.add(this.planet.group);
+    this.worldObjects.push(this.planet.group);
     this.sky = new Sky();
     this.scene.add(this.sky.group);
     // Grass slightly above planet surface; snake surfaceLift clears it
-    this.grass = new Grass(PLANET_RADIUS * 1.001, 1800);
+    this.grass = new Grass(this.planetRadius * 1.001, this._grassCount(this.planetRadius));
     this.planet.group.add(this.grass.mesh);
 
     const sun = new THREE.DirectionalLight(0xfff1dc, 2.0);
@@ -126,36 +146,93 @@ class Game {
     this.scene.add(rim);
 
     const skinKey = localStorage.getItem('snake3d.skin') || 'cosmic';
-    this.snake = new Snake(PLANET_RADIUS, skinKey);
+    this.snake = new Snake(this.planetRadius, skinKey);
     this.scene.add(this.snake.group);
+    this.worldObjects.push(this.snake.group);
 
-    this.energy   = new EnergyField(PLANET_RADIUS);
+    this.energy   = new EnergyField(this.planetRadius);
     this.scene.add(this.energy.group);
-    this.powerups = new PowerUpField(PLANET_RADIUS);
+    this.worldObjects.push(this.energy.group);
+    this.powerups = new PowerUpField(this.planetRadius);
     this.scene.add(this.powerups.group);
+    this.worldObjects.push(this.powerups.group);
 
     this.enemies = [];
     for (let i = 0; i < MAX_ENEMIES; i++) {
-      const worm = new EnemyWorm(PLANET_RADIUS);
+      const worm = new EnemyWorm(this.planetRadius);
       worm.group.visible = false;
       worm._dead = false;
       worm.respawnIn = 0;
       this.enemies.push(worm);
       this.scene.add(worm.group);
+      this.worldObjects.push(worm.group);
     }
 
     this.explosions = new Explosions();
     this.scene.add(this.explosions.group);
+    this.worldObjects.push(this.explosions.group);
 
-    this.chase = new ChaseCamera(this.camera, PLANET_RADIUS);
+    this.chase = new ChaseCamera(this.camera, this.planetRadius);
     this._setMenuView();
   }
 
   _setMenuView() {
     // Far view so the full planet is visible from the menu
-    this.camera.position.set(0, 8, 58);
+    const key = this.hud?.getMenuView?.() || localStorage.getItem('snake3d.view') || 'normal';
+    const view = MENU_VIEWS[key] || MENU_VIEWS.normal;
+    const scale = this.planetRadius / PLANET_SIZES.medium;
+    this.camera.position.set(0, 8 * scale, view.distance * scale);
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(0, 0, 0);
+  }
+
+  _loadPlanetRadius() {
+    const key = localStorage.getItem('snake3d.planetSize') || DEFAULT_PLANET_SIZE;
+    return PLANET_SIZES[key] || PLANET_SIZES[DEFAULT_PLANET_SIZE];
+  }
+
+  _grassCount(radius) {
+    return Math.round(1800 * (radius / PLANET_SIZES.medium) ** 2);
+  }
+
+  _rebuildWorld(radius, skinKey) {
+    for (const obj of this.worldObjects || []) this.scene.remove(obj);
+    this.planetRadius = radius;
+    this.worldObjects = [];
+
+    this.planet = new Planet(radius);
+    this.scene.add(this.planet.group);
+    this.worldObjects.push(this.planet.group);
+    this.grass = new Grass(radius * 1.001, this._grassCount(radius));
+    this.planet.group.add(this.grass.mesh);
+
+    this.snake = new Snake(radius, skinKey);
+    this.scene.add(this.snake.group);
+    this.worldObjects.push(this.snake.group);
+
+    this.energy = new EnergyField(radius);
+    this.scene.add(this.energy.group);
+    this.worldObjects.push(this.energy.group);
+
+    this.powerups = new PowerUpField(radius);
+    this.scene.add(this.powerups.group);
+    this.worldObjects.push(this.powerups.group);
+
+    this.enemies = [];
+    for (let i = 0; i < MAX_ENEMIES; i++) {
+      const worm = new EnemyWorm(radius);
+      worm.group.visible = false;
+      worm._dead = false;
+      worm.respawnIn = 0;
+      this.enemies.push(worm);
+      this.scene.add(worm.group);
+      this.worldObjects.push(worm.group);
+    }
+
+    this.explosions = new Explosions();
+    this.scene.add(this.explosions.group);
+    this.worldObjects.push(this.explosions.group);
+    this.chase = new ChaseCamera(this.camera, radius);
   }
 
   _initPost() {
@@ -177,11 +254,18 @@ class Game {
   start() {
     // Rebuild snake if skin changed
     const skinKey = this.hud.getSkin();
-    if (this.snake.skinKey !== skinKey) {
+    const nextRadius = this.hud.getPlanetRadius();
+    if (nextRadius !== this.planetRadius) {
+      this._rebuildWorld(nextRadius, skinKey);
+    } else if (this.snake.skinKey !== skinKey) {
       this.scene.remove(this.snake.group);
-      this.snake = new Snake(PLANET_RADIUS, skinKey);
+      this.worldObjects = this.worldObjects.filter((obj) => obj !== this.snake.group);
+      this.snake = new Snake(this.planetRadius, skinKey);
       this.scene.add(this.snake.group);
+      this.worldObjects.push(this.snake.group);
     }
+    const menuView = MENU_VIEWS[this.hud.getMenuView()] || MENU_VIEWS.normal;
+    this.chase.setZoom(menuView.zoom);
 
     this.score  = 0;
     this.kills  = 0;
@@ -216,7 +300,7 @@ class Game {
     worm.reset(this.snake.position, 1.4);
   }
 
-  /** Destroy an enemy worm: explosion, score, and a trail of energy orbs. */
+  /** Destroy an enemy worm: explosion, score, and a trail of fruit pickups. */
   _killEnemy(i) {
     const worm = this.enemies[i];
     if (worm._dead) return;
@@ -227,11 +311,11 @@ class Game {
     this.audio.death();
 
     // Explosion burst at the worm's head.
-    const lift = PLANET_RADIUS + worm.surfaceLift;
+    const lift = this.planetRadius + worm.surfaceLift;
     const at = worm.position.clone().multiplyScalar(lift);
     this.explosions.trigger(at, 0xff4d6d);
 
-    // Turn the worm's whole length into collectible energy orbs.
+    // Turn the worm's whole length into collectible fruits.
     const segs = worm.segments;
     const stepN = Math.max(1, Math.floor(segs.length / 6));
     for (let k = 0; k < segs.length; k += stepN) {
@@ -273,7 +357,7 @@ class Game {
       this.snake.update(dt, this.input.steer, moving);
 
       const headR = this.snake.thickness * 1.05;
-      const headAngle = headR / PLANET_RADIUS;
+      const headAngle = headR / this.planetRadius;
 
       this.energy.update(dt, this.snake.position, headR, (growth, score) => {
         this.score += score;
@@ -315,7 +399,7 @@ class Game {
           break;
         }
         // Enemy touching the player's BODY (the "middle") destroys the enemy.
-        if (worm.touches(this.snake.segments, headR / PLANET_RADIUS, 4)) {
+        if (worm.touches(this.snake.segments, headR / this.planetRadius, 4)) {
           this._killEnemy(i);
         }
       }
@@ -328,7 +412,7 @@ class Game {
           for (let j = i + 1; j < this.activeEnemies; j++) {
             const b = this.enemies[j];
             if (b._dead) continue;
-            if (a.touches(b.segments, b.thickness / PLANET_RADIUS, 0)) {
+            if (a.touches(b.segments, b.thickness / this.planetRadius, 0)) {
               this._killEnemy(i);
               this._killEnemy(j);
               break;

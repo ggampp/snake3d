@@ -339,6 +339,46 @@ html, body {
 }
 
 /* ── Name row ──────────────────────────────────────── */
+.menu-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 12px 0 10px;
+}
+
+.menu-option {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  text-align: left;
+}
+
+.menu-option span {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+
+.menu-option select {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 13px;
+  padding: 7px 9px;
+  outline: none;
+}
+
+.menu-option select:focus {
+  border-color: var(--teal);
+}
+
+.menu-option option {
+  color: #07111d;
+}
+
 .name-row {
   display: flex;
   align-items: center;

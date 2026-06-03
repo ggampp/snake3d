@@ -27,6 +27,8 @@ export class Hud {
     this.boardList  = document.getElementById('board-list');
     this.boardMode  = document.getElementById('board-mode');
     this.skinName   = document.getElementById('skin-name');
+    this.menuView   = document.getElementById('menu-view');
+    this.planetSize = document.getElementById('planet-size');
 
     this.muteBtn    = document.getElementById('btn-mute');
     this.zoomInBtn  = document.getElementById('btn-zoom-in');
@@ -39,12 +41,15 @@ export class Hud {
     // Selected skin
     this._skinKey = localStorage.getItem('snake3d.skin') || 'cosmic';
     this._initSkinPicker();
+    this._initMenuOptions();
 
     // Callbacks set by Game
     this.onStart      = null;
     this.onMuteToggle = null;
     this.onZoom       = null;
     this.onSkinChange = null;
+    this.onMenuViewChange = null;
+    this.onPlanetSizeChange = null;
 
     this.btn.addEventListener('click', () => {
       this._persistName();
@@ -54,6 +59,23 @@ export class Hud {
     this.muteBtn.addEventListener('click', () => this.onMuteToggle && this.onMuteToggle());
     this.zoomInBtn.addEventListener('click', () => this.onZoom && this.onZoom(-0.3));
     this.zoomOutBtn.addEventListener('click', () => this.onZoom && this.onZoom(0.3));
+  }
+
+  _initMenuOptions() {
+    if (this.menuView) {
+      this.menuView.value = localStorage.getItem('snake3d.view') || 'normal';
+      this.menuView.addEventListener('change', () => {
+        localStorage.setItem('snake3d.view', this.menuView.value);
+        if (this.onMenuViewChange) this.onMenuViewChange(this.menuView.value);
+      });
+    }
+    if (this.planetSize) {
+      this.planetSize.value = localStorage.getItem('snake3d.planetSize') || 'medium';
+      this.planetSize.addEventListener('change', () => {
+        localStorage.setItem('snake3d.planetSize', this.planetSize.value);
+        if (this.onPlanetSizeChange) this.onPlanetSizeChange(this.planetSize.value);
+      });
+    }
   }
 
   _initSkinPicker() {
@@ -80,6 +102,15 @@ export class Hud {
 
   getSkin() {
     return this._skinKey;
+  }
+
+  getMenuView() {
+    return this.menuView?.value || 'normal';
+  }
+
+  getPlanetRadius() {
+    const radii = { small: 16, medium: 20, large: 26 };
+    return radii[this.planetSize?.value || 'medium'] || radii.medium;
   }
 
   _persistName() {

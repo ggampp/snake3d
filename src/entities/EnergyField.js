@@ -2,15 +2,23 @@ import * as THREE from 'three';
 import { randomUnit, arcDistance } from '../core/SphereMath.js';
 
 /**
- * A field of glowing yellow energy orbs scattered on the planet. Each orb
- * appears, lives for a few seconds (fading in/out), then vanishes and later
- * respawns elsewhere. Bigger orbs carry more "energy": eating one grows the
- * snake proportionally to its size and awards proportional score.
+ * A field of fruit pickups scattered on the planet. Each fruit appears, stays
+ * available for 20 seconds, then vanishes and later respawns elsewhere. Bigger
+ * fruits carry more "energy": eating one grows the snake proportionally to its
+ * size and awards proportional score.
  *
  * Uses a FIXED pool of meshes/lights so the light count never changes (avoids
  * MeshStandardMaterial shader recompiles when orbs come and go).
  */
 const MAX_ORBS = 12;
+const FRUIT_LIFETIME = 20;
+
+const FRUITS = [
+  { body: 0xe74336, shade: 0xaa1f1a, leaf: 0x3ba64b }, // apple
+  { body: 0xffb22e, shade: 0xd97706, leaf: 0x2f9e44 }, // orange
+  { body: 0x8fd34f, shade: 0x4f9a2a, leaf: 0x2f9e44 }, // pear
+  { body: 0xd84b8e, shade: 0x9b1b5a, leaf: 0x4caf50 }, // berry
+];
 
 export class EnergyField {
   constructor(radius) {
@@ -18,17 +26,39 @@ export class EnergyField {
     this.group = new THREE.Group();
     this.orbs = [];
 
-    const geo = new THREE.SphereGeometry(1, 18, 18);
+    const bodyGeo = new THREE.SphereGeometry(1, 18, 18);
+    const biteGeo = new THREE.SphereGeometry(0.34, 10, 10);
+    const stemGeo = new THREE.CylinderGeometry(0.07, 0.09, 0.45, 8);
+    const leafGeo = new THREE.SphereGeometry(0.2, 10, 8);
     for (let i = 0; i < MAX_ORBS; i++) {
       const mat = new THREE.MeshStandardMaterial({
-        color: 0xffe35c,
-        emissive: 0xffc21e,
-        emissiveIntensity: 2.2,
-        roughness: 0.3,
+        color: 0xe74336,
+        emissive: 0x4a0805,
+        emissiveIntensity: 0.18,
+        roughness: 0.48,
         metalness: 0.0,
       });
-      const mesh = new THREE.Mesh(geo, mat);
-      const light = new THREE.PointLight(0xffd24d, 0, 14, 2);
+      const shadeMat = new THREE.MeshStandardMaterial({
+        color: 0xaa1f1a,
+        roughness: 0.55,
+        metalness: 0.0,
+      });
+      const stemMat = new THREE.MeshStandardMaterial({ color: 0x6d3f1d, roughness: 0.8 });
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x3ba64b, roughness: 0.7 });
+      const mesh = new THREE.Group();
+      const body = new THREE.Mesh(bodyGeo, mat);
+      const shade = new THREE.Mesh(biteGeo, shadeMat);
+      const stem = new THREE.Mesh(stemGeo, stemMat);
+      const leaf = new THREE.Mesh(leafGeo, leafMat);
+      body.scale.set(1, 0.92, 1);
+      shade.position.set(-0.32, 0.2, 0.75);
+      shade.scale.set(0.75, 0.5, 0.35);
+      stem.position.set(0, 0.95, 0);
+      stem.rotation.z = 0.35;
+      leaf.position.set(0.28, 1.05, 0);
+      leaf.scale.set(1.5, 0.55, 0.8);
+      mesh.add(body, shade, stem, leaf);
+      const light = new THREE.PointLight(0xff7043, 0, 10, 2);
       const holder = new THREE.Group();
       holder.add(mesh, light);
       this.group.add(holder);
@@ -44,6 +74,9 @@ export class EnergyField {
         mesh,
         light,
         holder,
+        mat,
+        shadeMat,
+        leafMat,
       });
     }
     this.reset();
@@ -53,9 +86,18 @@ export class EnergyField {
     for (const o of this.orbs) {
       o.active = false;
       o.cooldown = Math.random() * 1.2;
-      o.mesh.scale.setScalar(0);
+      o.holder.scale.setScalar(0);
       o.light.intensity = 0;
     }
+  }
+
+  _applyFruitStyle(orb) {
+    const fruit = FRUITS[Math.floor(Math.random() * FRUITS.length)];
+    orb.mat.color.setHex(fruit.body);
+    orb.mat.emissive.setHex(fruit.shade);
+    orb.shadeMat.color.setHex(fruit.shade);
+    orb.leafMat.color.setHex(fruit.leaf);
+    orb.light.color.setHex(fruit.body);
   }
 
   _spawn(orb, avoidUnit) {
@@ -63,10 +105,11 @@ export class EnergyField {
       randomUnit(orb.unit);
       if (!avoidUnit || arcDistance(orb.unit, avoidUnit) > 0.45) break;
     }
+    this._applyFruitStyle(orb);
     orb.energy = 1 + Math.floor(Math.random() * 3); // 1, 2 or 3
     orb.baseRadius = 0.42 + orb.energy * 0.16;
     orb.age = 0;
-    orb.lifetime = 7.0 + Math.random() * 5.0; // stay available longer
+    orb.lifetime = FRUIT_LIFETIME;
     orb.active = true;
     orb.holder.position.copy(orb.unit).multiplyScalar(this.radius * 1.02);
   }
@@ -80,10 +123,11 @@ export class EnergyField {
     const orb = this.orbs.find((o) => !o.active);
     if (!orb) return false;
     orb.unit.copy(unit).normalize();
+    this._applyFruitStyle(orb);
     orb.energy = Math.max(1, Math.min(3, Math.round(energy)));
     orb.baseRadius = 0.42 + orb.energy * 0.16;
     orb.age = 0;
-    orb.lifetime = 8.0 + Math.random() * 4.0;
+    orb.lifetime = FRUIT_LIFETIME;
     orb.active = true;
     orb.holder.position.copy(orb.unit).multiplyScalar(this.radius * 1.02);
     return true;
@@ -106,7 +150,7 @@ export class EnergyField {
         o.cooldown -= dt;
         if (o.cooldown <= 0) this._spawn(o, headUnit);
         else {
-          o.mesh.scale.setScalar(0);
+          o.holder.scale.setScalar(0);
           o.light.intensity = 0;
           continue;
         }
@@ -121,15 +165,18 @@ export class EnergyField {
       const pulse = 1 + Math.sin(o.age * 5) * 0.12;
       const r = o.baseRadius * life * pulse;
 
-      o.mesh.scale.setScalar(r);
+      o.holder.scale.setScalar(r);
       o.mesh.rotation.y += dt * 1.5;
-      o.light.intensity = 5 * life;
-      o.mesh.material.emissiveIntensity = 2.0 + Math.sin(o.age * 5) * 0.5;
+      o.mesh.rotation.x = Math.sin(o.age * 2) * 0.08;
+      o.light.intensity = 1.8 * life;
+      o.mat.emissiveIntensity = 0.18 + Math.sin(o.age * 5) * 0.04;
 
       // Expired?
       if (o.age >= o.lifetime) {
         o.active = false;
         o.cooldown = 0.4 + Math.random() * 1.6;
+        o.holder.scale.setScalar(0);
+        o.light.intensity = 0;
         continue;
       }
 
@@ -138,7 +185,7 @@ export class EnergyField {
         onEat(o.energy * 2, o.energy); // grow proportionally; score = energy
         o.active = false;
         o.cooldown = 0.3 + Math.random() * 1.2;
-        o.mesh.scale.setScalar(0);
+        o.holder.scale.setScalar(0);
         o.light.intensity = 0;
       }
     }
