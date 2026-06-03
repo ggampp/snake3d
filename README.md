@@ -11,8 +11,12 @@ brilhantes enquanto a câmera a segue em terceira pessoa. Feito com **Three.js**
 - **← / →** ou **A / D** — virar para a esquerda / direita
 - **Toque** na metade esquerda/direita da tela (mobile)
 - A cobra avança sozinha; você só controla a direção
-- Coma os orbes laranja para crescer e pontuar
-- Encostar no próprio corpo = **game over**
+- Colete as **bolas de energia amarelas** para crescer e pontuar — elas
+  aparecem, ficam alguns segundos e somem; quanto maior a bola, **mais a
+  cobra cresce** (proporcional à energia)
+- Cuidado com as **minhocas inimigas** vermelhas que vagam pelo planeta:
+  encostar em uma é **game over**
+- Encostar no próprio corpo também é **game over**
 - A velocidade aumenta conforme você pontua
 
 ## Rodando localmente
@@ -55,8 +59,11 @@ src/
 │   ├── Sky.js         campo de estrelas + nebulosa (fbm noise)
 │   └── Grass.js       tufos instanciados (distribuição de Fibonacci)
 ├── entities/
-│   ├── Snake.js       corpo segmentado emissivo na esfera
-│   └── Food.js        orbe pulsante com luz pontual
+│   ├── Crawler.js     base: caminho na esfera + corpo em tubo contínuo
+│   ├── TubeBody.js    gera o tubo (frames paralelos, com afinamento)
+│   ├── Snake.js       cobra do jogador (olhos, comer, colisão)
+│   ├── EnemyWorm.js   minhoca inimiga com IA de perambulação
+│   └── EnergyField.js bolas de energia temporárias (pool fixo de luzes)
 └── ui/
     ├── Hud.js         score, stats e tela de game over
     └── hud.css        estilos do overlay

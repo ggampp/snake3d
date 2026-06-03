@@ -7,12 +7,14 @@ import { Planet } from './world/Planet.js';
 import { Sky } from './world/Sky.js';
 import { Grass } from './world/Grass.js';
 import { Snake } from './entities/Snake.js';
-import { Food } from './entities/Food.js';
+import { EnergyField } from './entities/EnergyField.js';
+import { EnemyWorm } from './entities/EnemyWorm.js';
 import { ChaseCamera } from './core/Camera.js';
 import { Input } from './core/Input.js';
 import { Hud } from './ui/Hud.js';
 
 const PLANET_RADIUS = 20;
+const ENEMY_COUNT = 3;
 
 class Game {
   constructor() {
@@ -64,7 +66,6 @@ class Game {
       0.1,
       1000
     );
-    this.camera.position.set(0, 30, 30);
 
     // World
     this.planet = new Planet(PLANET_RADIUS);
@@ -89,10 +90,26 @@ class Game {
     this.snake = new Snake(PLANET_RADIUS);
     this.scene.add(this.snake.group);
 
-    this.food = new Food(PLANET_RADIUS);
-    this.scene.add(this.food.group);
+    this.energy = new EnergyField(PLANET_RADIUS);
+    this.scene.add(this.energy.group);
+
+    this.enemies = [];
+    for (let i = 0; i < ENEMY_COUNT; i++) {
+      const worm = new EnemyWorm(PLANET_RADIUS);
+      this.enemies.push(worm);
+      this.scene.add(worm.group);
+    }
 
     this.chase = new ChaseCamera(this.camera, PLANET_RADIUS);
+
+    // Default (pre-game) framing: the whole planet, held steady.
+    this._setMenuView();
+  }
+
+  _setMenuView() {
+    this.camera.position.set(0, 6, 42);
+    this.camera.up.set(0, 1, 0);
+    this.camera.lookAt(0, 0, 0);
   }
 
   _initPost() {
@@ -112,7 +129,8 @@ class Game {
     this.hud.setScore(0);
     this.snake.reset();
     this.chase.reset();
-    this.food.respawn(this.snake.position);
+    this.energy.reset();
+    for (const worm of this.enemies) worm.reset(this.snake.position, 1.1);
     this.state = 'playing';
     this.hud.hide();
   }
@@ -121,48 +139,53 @@ class Game {
     this.state = 'dead';
     this.snake.die();
     this.hud.showGameOver(this.score, this.snake.segmentCount);
-  }
-
-  _eatAngle() {
-    // Head + food radii expressed as an angle on the sphere.
-    return (this.snake.thickness * 1.1 + 0.5) / PLANET_RADIUS;
+    this._setMenuView();
   }
 
   _update(dt) {
     this.sky.update(dt);
     this.planet.update(dt);
-    this.food.update(dt);
 
     if (this.state === 'playing') {
       this.snake.setDifficulty(this.score);
       this.snake.update(dt, this.input.steer);
 
-      // Eat?
-      if (this.food.isEatenBy(this.snake.position, this._eatAngle())) {
-        this.score += 1;
-        this.snake.grow(2);
-        this.food.respawn(this.snake.position);
-        this.hud.setScore(this.score);
+      // Energy orbs: temporary yellow pickups, proportional growth.
+      this.energy.update(
+        dt,
+        this.snake.position,
+        this.snake.thickness * 1.05,
+        (growth, score) => {
+          this.score += score;
+          this.snake.grow(growth);
+          this.hud.setScore(this.score);
+        }
+      );
+
+      // Enemy worms wander; touching one ends the run.
+      const extra = this.snake.thickness / PLANET_RADIUS;
+      for (const worm of this.enemies) {
+        worm.update(dt);
+        if (worm.hits(this.snake.position, extra)) {
+          this._gameOver();
+          break;
+        }
       }
 
-      // Stats + collision.
       this.hud.setStats({
         length: this.snake.segmentCount,
         speed: this.snake.speed / this.snake.baseSpeed,
       });
-      if (this.snake.checkSelfCollision()) this._gameOver();
+      if (this.state === 'playing' && this.snake.checkSelfCollision()) this._gameOver();
 
-      this.chase.update(dt, this.snake.position, this.snake.heading);
+      if (this.state === 'playing') {
+        this.chase.update(dt, this.snake.position, this.snake.heading);
+      }
     } else {
-      // Idle: slow orbit so the menu/death screen isn't static.
-      const t = this.clock.elapsedTime * 0.15;
-      this.camera.position.set(
-        Math.cos(t) * 42,
-        18,
-        Math.sin(t) * 42
-      );
-      this.camera.up.set(0, 1, 0);
-      this.camera.lookAt(0, 0, 0);
+      // Menu / game-over: keep enemies and orbs gently alive in the backdrop.
+      for (const worm of this.enemies) worm.update(dt);
+      this.energy.update(dt, null, 0, () => {});
+      this._setMenuView();
     }
   }
 
