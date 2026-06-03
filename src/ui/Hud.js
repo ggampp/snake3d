@@ -32,14 +32,6 @@ export class Hud {
     this.zoomInBtn  = document.getElementById('btn-zoom-in');
     this.zoomOutBtn = document.getElementById('btn-zoom-out');
 
-    this.nameInput = document.getElementById('player-name');
-    this.boardList = document.getElementById('board-list');
-    this.boardMode = document.getElementById('board-mode');
-
-    this.muteBtn = document.getElementById('btn-mute');
-    this.zoomInBtn = document.getElementById('btn-zoom-in');
-    this.zoomOutBtn = document.getElementById('btn-zoom-out');
-
     this.best = Number(localStorage.getItem('snake3d.best') || 0);
     this.bestEl.textContent = this.best;
     this.nameInput.value = localStorage.getItem('snake3d.name') || '';

@@ -36,12 +36,6 @@ export class Crawler {
     this.waveSpeed = opts.waveSpeed ?? 6;
     this._wavePhase = Math.random() * Math.PI * 2;
 
-    // Slithering undulation (lateral wave that travels along the body).
-    this.waveAmp = opts.waveAmp ?? 0;
-    this.waveFreq = opts.waveFreq ?? 0.5;
-    this.waveSpeed = opts.waveSpeed ?? 6;
-    this._wavePhase = Math.random() * Math.PI * 2;
-
     this.group = new THREE.Group();
     this.segments = [];
 
