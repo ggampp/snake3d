@@ -10,6 +10,7 @@ import { Snake } from './entities/Snake.js';
 import { EnergyField } from './entities/EnergyField.js';
 import { PowerUpField } from './entities/PowerUpField.js';
 import { EnemyWorm } from './entities/EnemyWorm.js';
+import { Explosions } from './entities/Explosions.js';
 import { ChaseCamera } from './core/Camera.js';
 import { Input } from './core/Input.js';
 import { AudioFx } from './core/Audio.js';
@@ -65,17 +66,30 @@ class Game {
 
     this.input.onConfirm = () => {
       this.audio.resume();
-      if (this.state !== 'playing') this.start();
+      if (this.state === 'menu' || this.state === 'dead') this.start();
     };
     this.input.onJump = () => {
       this.audio.resume();
       if (this.state === 'playing') {
         this.snake.jump(() => this.audio.jump());
-      } else {
+      } else if (this.state !== 'paused') {
         this.start();
       }
     };
+    this.input.onPause = () => this._togglePause();
     this.input.onZoom = (d) => this.chase.addZoom(d);
+    this.input.bindForwardButton(document.getElementById('btn-forward'));
+  }
+
+  _togglePause() {
+    if (this.state === 'playing') {
+      this.state = 'paused';
+      this._pauseEl = this._pauseEl || document.getElementById('pause-overlay');
+      if (this._pauseEl) this._pauseEl.classList.remove('hidden');
+    } else if (this.state === 'paused') {
+      this.state = 'playing';
+      if (this._pauseEl) this._pauseEl.classList.add('hidden');
+    }
   }
 
   _initRenderer() {
@@ -124,9 +138,14 @@ class Game {
     for (let i = 0; i < MAX_ENEMIES; i++) {
       const worm = new EnemyWorm(PLANET_RADIUS);
       worm.group.visible = false;
+      worm._dead = false;
+      worm.respawnIn = 0;
       this.enemies.push(worm);
       this.scene.add(worm.group);
     }
+
+    this.explosions = new Explosions();
+    this.scene.add(this.explosions.group);
 
     this.chase = new ChaseCamera(this.camera, PLANET_RADIUS);
     this._setMenuView();
@@ -180,6 +199,8 @@ class Game {
     this.enemies.forEach((worm, i) => {
       const on = i < this.activeEnemies;
       worm.group.visible = on;
+      worm._dead = false;
+      worm.respawnIn = 0;
       if (on) worm.reset(this.snake.position, 1.1);
     });
 
@@ -190,7 +211,32 @@ class Game {
   _activateEnemy(i) {
     const worm = this.enemies[i];
     worm.group.visible = true;
+    worm._dead = false;
+    worm.respawnIn = 0;
     worm.reset(this.snake.position, 1.4);
+  }
+
+  /** Destroy an enemy worm: explosion, score, and a trail of energy orbs. */
+  _killEnemy(i) {
+    const worm = this.enemies[i];
+    if (worm._dead) return;
+    worm._dead = true;
+    worm.group.visible = false;
+    worm.respawnIn = 3 + Math.random() * 2;
+    this.kills++;
+    this.audio.death();
+
+    // Explosion burst at the worm's head.
+    const lift = PLANET_RADIUS + worm.surfaceLift;
+    const at = worm.position.clone().multiplyScalar(lift);
+    this.explosions.trigger(at, 0xff4d6d);
+
+    // Turn the worm's whole length into collectible energy orbs.
+    const segs = worm.segments;
+    const stepN = Math.max(1, Math.floor(segs.length / 6));
+    for (let k = 0; k < segs.length; k += stepN) {
+      this.energy.spawnAt(segs[k], 1 + (k % 2 === 0 ? 1 : 0));
+    }
   }
 
   _gameOver() {
@@ -207,8 +253,12 @@ class Game {
   }
 
   _update(dt) {
+    // Paused: freeze the world entirely (the frame is still re-rendered).
+    if (this.state === 'paused') return;
+
     this.sky.update(dt);
     this.planet.update(dt);
+    this.explosions.update(dt);
 
     if (this.state === 'playing') {
       const now = this.clock.elapsedTime;
@@ -218,13 +268,17 @@ class Game {
       this.snake.setTurbo(turboRemain > 0);
 
       this.snake.setDifficulty(this.score);
-      this.snake.update(dt, this.input.steer);
+      // The snake only advances while the player holds the move key.
+      const moving = this.input.forward;
+      this.snake.update(dt, this.input.steer, moving);
 
       const headR = this.snake.thickness * 1.05;
+      const headAngle = headR / PLANET_RADIUS;
 
       this.energy.update(dt, this.snake.position, headR, (growth, score) => {
         this.score += score;
         this.snake.grow(growth);
+        this.snake.swallow(); // "gulp" bulge travels down the body
         this.audio.eat(score);
         this.hud.setScore(this.score);
       });
@@ -240,13 +294,46 @@ class Game {
       while (this.activeEnemies < desired) {
         this._activateEnemy(this.activeEnemies++);
       }
+
+      // Enemy updates + collisions.
       for (let i = 0; i < this.activeEnemies; i++) {
         const worm = this.enemies[i];
+
+        // Respawn dead worms after their timer.
+        if (worm._dead) {
+          worm.respawnIn -= dt;
+          if (worm.respawnIn <= 0) this._activateEnemy(i);
+          continue;
+        }
+
         worm.speed = wormSpeed;
         worm.update(dt);
-        if (!this.snake.invincible && worm.hits(this.snake.position, headR / PLANET_RADIUS)) {
+
+        // Enemy touching the player's HEAD ends the run (unless invincible).
+        if (!this.snake.invincible && worm.hits(this.snake.position, headAngle)) {
           this._gameOver();
           break;
+        }
+        // Enemy touching the player's BODY (the "middle") destroys the enemy.
+        if (worm.touches(this.snake.segments, headR / PLANET_RADIUS, 4)) {
+          this._killEnemy(i);
+        }
+      }
+
+      // Enemy-vs-enemy: both worms are destroyed on contact.
+      if (this.state === 'playing') {
+        for (let i = 0; i < this.activeEnemies; i++) {
+          const a = this.enemies[i];
+          if (a._dead) continue;
+          for (let j = i + 1; j < this.activeEnemies; j++) {
+            const b = this.enemies[j];
+            if (b._dead) continue;
+            if (a.touches(b.segments, b.thickness / PLANET_RADIUS, 0)) {
+              this._killEnemy(i);
+              this._killEnemy(j);
+              break;
+            }
+          }
         }
       }
 
@@ -262,7 +349,9 @@ class Game {
         this.chase.update(dt, this.snake.position, this.snake.heading);
       }
     } else {
-      for (let i = 0; i < this.activeEnemies; i++) this.enemies[i].update(dt);
+      for (let i = 0; i < this.activeEnemies; i++) {
+        if (!this.enemies[i]._dead) this.enemies[i].update(dt);
+      }
       this.energy.update(dt, null, 0, () => {});
       this.powerups.update(dt, null, 0, () => {});
       this._setMenuView();

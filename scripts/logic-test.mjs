@@ -114,5 +114,48 @@ const ok = (cond, msg) => {
   ok(snake.invincible && !snake.checkSelfCollision(), 'shield blocks self-collision');
 }
 
+// 9. Hold-to-move: the snake only advances when `moving` is true.
+{
+  const snake = new Snake(20);
+  const before = snake.position.clone();
+  snake.update(0.05, 0, false); // not holding the move key
+  ok(arcDistance(before, snake.position) < 1e-6, 'snake stays put when not moving');
+  snake.update(0.05, 0, true); // holding it now
+  ok(arcDistance(before, snake.position) > 1e-4, 'snake advances when moving');
+}
+
+// 10. Enemy "touches" detects body (middle) contact and honours the skip range.
+{
+  const worm = new EnemyWorm(20);
+  worm.reset();
+  // A point sitting on the worm's head; with skip=0 it's a hit, skip past it = miss.
+  const onHead = worm.segments[0].clone();
+  ok(worm.touches([onHead], 0.02, 0), 'touches() detects contact with a point');
+  ok(!worm.touches([onHead], 0.02, 1), 'touches() honours the skip offset');
+  const far = onHead.clone().negate();
+  ok(!worm.touches([far], 0.02, 0), 'touches() ignores far-away points');
+}
+
+// 11. Destroyed worm → energy orbs can be force-spawned along its length.
+{
+  const snake = new Snake(20);
+  const field = new EnergyField(20);
+  const before = field.orbs.filter((o) => o.active).length;
+  const ok1 = field.spawnAt(snake.position.clone(), 2);
+  const after = field.orbs.filter((o) => o.active).length;
+  ok(ok1 && after === before + 1, 'spawnAt activates a pooled orb at a point');
+}
+
+// 12. Swallow bulge fattens the body locally then clears out.
+{
+  const snake = new Snake(20);
+  snake.swallow();
+  snake.update(0.016, 0, true);
+  ok(typeof snake._radiusScaleFn === 'function', 'swallow installs a radius-scale fn');
+  ok(snake._radiusScaleFn(0) > 1, 'bulge widens the body near the head');
+  for (let i = 0; i < 80; i++) snake.update(0.016, 0, true); // run it off the tail
+  ok(snake._radiusScaleFn === null, 'bulge clears after travelling the body');
+}
+
 console.log(failures === 0 ? '\nALL TESTS PASSED' : `\n${failures} TEST(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

@@ -13,7 +13,8 @@ export function buildTaperedTube(
   radiusBase,
   radialSegments = 12,
   taperTail = 0.25,
-  getColor = null
+  getColor = null,
+  getRadiusScale = null
 ) {
   const curve = new THREE.CatmullRomCurve3(pointsWorld, false, 'catmullrom', 0.5);
   const tubularSegments = Math.max(8, (pointsWorld.length - 1) * 3);
@@ -33,7 +34,8 @@ export function buildTaperedTube(
     const nrm = frames.normals[i];
     const bin = frames.binormals[i];
     // taper: thickest at head (t=0), tapers to taperTail fraction at tail
-    const r = radiusBase * (1 - (1 - taperTail) * t * t);
+    let r = radiusBase * (1 - (1 - taperTail) * t * t);
+    if (getRadiusScale) r *= getRadiusScale(t);
 
     if (getColor) {
       getColor(t, C);
@@ -78,6 +80,7 @@ export class TubeBody {
   constructor(material, radialSegments = 12) {
     this.radialSegments = radialSegments;
     this.getColor = null; // optional (t, THREE.Color) => void
+    this.getRadiusScale = null; // optional (t) => number
     this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), material);
     this.mesh.frustumCulled = false;
   }
@@ -89,7 +92,8 @@ export class TubeBody {
       radiusBase,
       this.radialSegments,
       taperTail,
-      this.getColor
+      this.getColor,
+      this.getRadiusScale
     );
     this.mesh.geometry.dispose();
     this.mesh.geometry = geo;
