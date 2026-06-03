@@ -4,6 +4,7 @@ import { advance, turn, arcDistance, reorthonormalize } from '../src/core/Sphere
 import { Snake } from '../src/entities/Snake.js';
 import { EnemyWorm } from '../src/entities/EnemyWorm.js';
 import { EnergyField } from '../src/entities/EnergyField.js';
+import { PowerUpField } from '../src/entities/PowerUpField.js';
 
 let failures = 0;
 const ok = (cond, msg) => {
@@ -76,6 +77,41 @@ const ok = (cond, msg) => {
   // A point on the far side of the planet should not register.
   const far = head.clone().negate();
   ok(!worm.hits(far, 0.02), 'enemy worm ignores far-away points');
+}
+
+// 6. Jump grants temporary invincibility and lifts the body.
+{
+  const snake = new Snake(20);
+  snake.segments[10] = snake.position.clone(); // would normally be a collision
+  ok(snake.checkSelfCollision(), 'collides when not jumping');
+  snake.jump();
+  ok(snake.isJumping && snake.invincible, 'jump makes the snake invincible');
+  ok(!snake.checkSelfCollision(), 'no self-collision while jumping');
+  snake.update(0.016, 0);
+  ok(snake.surfaceLift > snake._baseLift, 'body lifts off the surface mid-jump');
+}
+
+// 7. Power-up pickup reports its type.
+{
+  const snake = new Snake(20);
+  const field = new PowerUpField(20);
+  const slot = field.slots[0];
+  slot.active = true;
+  slot.unit.copy(snake.position);
+  slot.type = 'turbo';
+  slot.age = 1.0;
+  slot.lifetime = 6.0;
+  let got = null;
+  field.update(0.016, snake.position, snake.thickness * 1.05, (type) => (got = type));
+  ok(got === 'turbo', `power-up pickup fires with its type (got ${got})`);
+}
+
+// 8. Shield blocks both enemy and self collisions.
+{
+  const snake = new Snake(20);
+  snake.setShield(true);
+  snake.segments[10] = snake.position.clone();
+  ok(snake.invincible && !snake.checkSelfCollision(), 'shield blocks self-collision');
 }
 
 console.log(failures === 0 ? '\nALL TESTS PASSED' : `\n${failures} TEST(S) FAILED`);
