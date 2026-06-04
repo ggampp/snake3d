@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { loadPlanetTexture } from './PlanetTextures.js';
 
 const DEFAULT_THEME = {
   surface: { grass: 0x5a8530, dirt: 0x6a4a2e, patchScale: 3.0, brightness: 1.6 },
@@ -6,12 +7,14 @@ const DEFAULT_THEME = {
 };
 
 /**
- * The planet: a shaded sphere with a grass/earth surface and a fresnel
- * atmosphere shell that gives the glowing rim seen in the reference video.
+ * The planet: a shaded sphere with a fresnel atmosphere shell that gives the
+ * glowing rim seen in the reference video.
  *
- * Surface colours and the atmosphere tint are driven by a `theme` so each
- * campaign level can look different (desert, ice, volcano, …) without changing
- * the shader. Colours are uniforms, so they can also be swapped at runtime.
+ * The surface comes from one of two sources, both driven by the `theme`:
+ *   • a real equirectangular map (`theme.texture`, e.g. Earth / Mars / Jupiter),
+ *   • or a procedural grass/dirt shader (the free-play "Pradaria" look).
+ * The atmosphere tint and strength are themed too, so every level — textured or
+ * procedural — can look different without touching the engine.
  */
 export class Planet {
   constructor(radius = 20, theme = DEFAULT_THEME) {
@@ -25,6 +28,24 @@ export class Planet {
 
   _buildSurface() {
     const geo = new THREE.SphereGeometry(this.radius, 96, 96);
+
+    // Textured planet: use the real surface map directly.
+    const map = this.theme.texture ? loadPlanetTexture(this.theme.texture) : null;
+    if (map) {
+      const mat = new THREE.MeshStandardMaterial({
+        map,
+        roughness: this.theme.surface?.roughness ?? 0.95,
+        metalness: 0.0,
+      });
+      const b = this.theme.surface?.brightness;
+      if (b) mat.color.multiplyScalar(b);
+      this.mesh = new THREE.Mesh(geo, mat);
+      this.mesh.receiveShadow = true;
+      this.group.add(this.mesh);
+      return;
+    }
+
+    // Procedural grass/dirt surface.
     const s = this.theme.surface || DEFAULT_THEME.surface;
 
     const mat = new THREE.MeshStandardMaterial({
@@ -89,7 +110,7 @@ export class Planet {
       uniforms: {
         uColor: { value: new THREE.Color(this.theme.atmosphere ?? DEFAULT_THEME.atmosphere) },
         uPower: { value: 5.5 },
-        uIntensity: { value: 0.55 },
+        uIntensity: { value: this.theme.atmosphereIntensity ?? 0.55 },
       },
       vertexShader: `
         varying vec3 vNormal;

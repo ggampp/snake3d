@@ -6,7 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { Planet } from './world/Planet.js';
 import { Sky } from './world/Sky.js';
 import { Grass } from './world/Grass.js';
-import { LEVELS, getUnlocked, setUnlocked } from './world/Levels.js';
+import { LEVELS, PLANET_THEMES, getUnlocked, setUnlocked } from './world/Levels.js';
 import { Snake } from './entities/Snake.js';
 import { EnergyField } from './entities/EnergyField.js';
 import { PowerUpField } from './entities/PowerUpField.js';
@@ -99,6 +99,12 @@ class Game {
     this.hud.onMenuViewChange = () => this._setMenuView();
 
     this.hud.onPlanetSizeChange = () => {
+      if (this.state === 'playing' || this.state === 'paused') return;
+      this._applySetup();
+      this._setMenuView();
+    };
+
+    this.hud.onFreeSurfaceChange = () => {
       if (this.state === 'playing' || this.state === 'paused') return;
       this._applySetup();
       this._setMenuView();
@@ -241,12 +247,14 @@ class Game {
         themeId: lvl.id,
       };
     }
+    const surface = this.hud ? this.hud.getFreeSurface() : 'pradaria';
+    const theme = surface === 'pradaria' ? FREE_THEME : PLANET_THEMES[surface] || FREE_THEME;
     return {
       radius: this.hud ? this.hud.getPlanetRadius() : this.planetRadius,
-      theme: FREE_THEME,
+      theme,
       goal: 0,
       enemies: { base: BASE_ENEMIES, max: MAX_ENEMIES, speedMax: 0.92 },
-      themeId: 'free',
+      themeId: `free:${surface}`,
     };
   }
 

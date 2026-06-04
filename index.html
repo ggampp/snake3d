@@ -104,12 +104,25 @@
             </select>
           </label>
           <!-- Free play: pick planet size -->
-          <label class="menu-option" id="free-options" for="planet-size" hidden>
+          <label class="menu-option free-only" for="planet-size" hidden>
             <span>Planeta</span>
             <select id="planet-size">
               <option value="small">Pequeno</option>
               <option value="medium">M&eacute;dio</option>
               <option value="large">Grande</option>
+            </select>
+          </label>
+          <!-- Free play: pick the surface (procedural meadow or a real planet) -->
+          <label class="menu-option free-only" for="free-surface" hidden>
+            <span>Superf&iacute;cie</span>
+            <select id="free-surface">
+              <option value="pradaria">Pradaria</option>
+              <option value="terra">Terra</option>
+              <option value="marte">Marte</option>
+              <option value="lua">Lua</option>
+              <option value="venus">V&ecirc;nus</option>
+              <option value="jupiter">J&uacute;piter</option>
+              <option value="mercurio">Merc&uacute;rio</option>
             </select>
           </label>
         </div>
@@ -129,6 +142,11 @@
           <b>P</b> pausa · <b>+/−</b> ajusta a visão · no celular, toque para mover e use as laterais para virar.
         </p>
         <button id="overlay-btn" class="overlay-btn">Jogar</button>
+        <p class="overlay-credit">
+          Texturas dos planetas:
+          <a href="https://www.solarsystemscope.com/textures/" target="_blank" rel="noopener">Solar System Scope</a>
+          · CC BY 4.0
+        </p>
       </div>
     </div>
 

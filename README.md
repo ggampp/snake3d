@@ -65,16 +65,19 @@ src/
 │   ├── Audio.js        efeitos sonoros sintetizados (Web Audio)
 │   └── Leaderboard.js  placar com backend plugável (local hoje, online depois)
 ├── world/
-│   ├── Planet.js      esfera + atmosfera (fresnel) com shaders
-│   ├── Sky.js         campo de estrelas + nebulosa (fbm noise)
-│   └── Grass.js       tufos instanciados (distribuição de Fibonacci)
+│   ├── Planet.js         esfera + atmosfera (fresnel): textura real OU shader procedural
+│   ├── PlanetTextures.js mapas reais dos planetas (loader com cache + atribuição)
+│   ├── Levels.js         dados das fases (campanha) + temas de planeta reutilizáveis
+│   ├── Sky.js            campo de estrelas + nebulosa (fbm noise)
+│   └── Grass.js          tufos instanciados (distribuição de Fibonacci)
 ├── entities/
 │   ├── Crawler.js     base: caminho na esfera + corpo em tubo contínuo
 │   ├── TubeBody.js    gera o tubo (frames paralelos, com afinamento)
 │   ├── Snake.js       cobra do jogador (olhos, comer, colisão, escudo/turbo/pulo)
 │   ├── EnemyWorm.js   minhoca inimiga com IA de perambulação
 │   ├── EnergyField.js bolas de energia temporárias (pool fixo de luzes)
-│   └── PowerUpField.js power-ups escudo/turbo (orbe + anel giratório)
+│   ├── PowerUpField.js power-ups escudo/turbo (orbe + anel giratório)
+│   └── Explosions.js  partículas de explosão quando uma minhoca some
 └── ui/
     ├── Hud.js         score, stats e tela de game over
     └── hud.css        estilos do overlay
@@ -82,6 +85,20 @@ src/
 
 O visual usa pós-processamento (`UnrealBloomPass`) para o brilho da cobra e
 da comida, atmosfera por *fresnel* e tone mapping ACES.
+
+### Fases e planetas
+
+A **campanha** encadeia fases, e cada fase é um **planeta real diferente**
+(tamanho + textura): Terra, Marte, Lua, Vênus e Júpiter. Cada planeta usa um
+mapa equiretangular aplicado na esfera (`src/world/PlanetTextures.js`); a
+Terra mantém a **grama** que se deita quando a cobra passa, e os demais corpos
+ficam só com a rocha/gás texturizado (look *híbrido*). No **modo livre** dá
+para escolher qualquer superfície (inclusive Mercúrio ou a Pradaria procedural)
+em qualquer tamanho de planeta. Tudo é orientado por dados em
+`src/world/Levels.js` — adicionar/ajustar uma fase não exige mexer no engine.
+
+As texturas dos planetas são do **[Solar System Scope](https://www.solarsystemscope.com/textures/)**,
+licenciadas sob **CC BY 4.0** (via Wikimedia Commons). Veja [`CREDITS.md`](CREDITS.md).
 
 ## Placar online (opcional)
 

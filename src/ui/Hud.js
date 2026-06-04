@@ -29,12 +29,13 @@ export class Hud {
     this.skinName   = document.getElementById('skin-name');
     this.menuView   = document.getElementById('menu-view');
     this.planetSize = document.getElementById('planet-size');
+    this.freeSurface = document.getElementById('free-surface');
 
     // Campaign / free-mode UI
     this.goalEl       = document.getElementById('hud-goal');
     this.modeBtns     = document.querySelectorAll('.mode-btn');
     this.levelPicker  = document.getElementById('level-picker');
-    this.freeOptions  = document.getElementById('free-options');
+    this.freeOptions  = document.querySelectorAll('.free-only');
     this.levelNameEl  = document.getElementById('level-name');
     this.levelMetaEl  = document.getElementById('level-meta');
     this.levelPrevBtn = document.getElementById('level-prev');
@@ -68,6 +69,7 @@ export class Hud {
     this.onModeChange = null;
     this.onLevelChange = null;
     this.onNextLevel = null;
+    this.onFreeSurfaceChange = null;
 
     this._mode = 'campaign';
     this._initModeControls();
@@ -107,7 +109,7 @@ export class Hud {
     this._mode = mode;
     this.modeBtns.forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
     if (this.levelPicker) this.levelPicker.hidden = mode !== 'campaign';
-    if (this.freeOptions) this.freeOptions.hidden = mode !== 'free';
+    this.freeOptions.forEach((el) => { el.hidden = mode !== 'free'; });
   }
 
   getMode() {
@@ -164,6 +166,13 @@ export class Hud {
         if (this.onPlanetSizeChange) this.onPlanetSizeChange(this.planetSize.value);
       });
     }
+    if (this.freeSurface) {
+      this.freeSurface.value = localStorage.getItem('snake3d.freeSurface') || 'pradaria';
+      this.freeSurface.addEventListener('change', () => {
+        localStorage.setItem('snake3d.freeSurface', this.freeSurface.value);
+        if (this.onFreeSurfaceChange) this.onFreeSurfaceChange(this.freeSurface.value);
+      });
+    }
   }
 
   _initSkinPicker() {
@@ -199,6 +208,10 @@ export class Hud {
   getPlanetRadius() {
     const radii = { small: 16, medium: 20, large: 26 };
     return radii[this.planetSize?.value || 'medium'] || radii.medium;
+  }
+
+  getFreeSurface() {
+    return this.freeSurface?.value || 'pradaria';
   }
 
   _persistName() {

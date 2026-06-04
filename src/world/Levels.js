@@ -1,67 +1,93 @@
 /**
- * Campaign levels. Each level is a different planet: size + theme (surface
- * colours, atmosphere, sky, grass coverage) + a fruit goal to clear it.
+ * Campaign levels. Each level is a different real planet: size + theme (surface
+ * texture, atmosphere, sky, grass) + a fruit goal to clear it.
+ *
+ * The surface art comes from real solar-system maps (see PlanetTextures.js).
+ * It's a *hybrid* look: habitable worlds (Terra) keep the patchy grass that
+ * lies down as the snake passes; the others (Marte, Lua, Vênus, Júpiter, …)
+ * are bare textured rock/gas with no grass.
  *
  * Everything here is data — the world classes (Planet, Sky, Grass) read these
  * fields, so adding or tweaking a level needs no engine changes. Names and
  * exact numbers are placeholders meant to be tuned later.
  */
-export const LEVELS = [
-  {
-    id: 'meadow',
-    name: 'Pradaria',
-    radius: 16,
-    goal: 8,
-    surface: { grass: 0x5a8f2a, dirt: 0x6a4a24, patchScale: 3.0, brightness: 1.6 },
+
+/**
+ * Reusable per-planet themes, shared by the campaign and by free-play's surface
+ * picker. Keyed by a short id; each maps to a PlanetTextures.js texture key.
+ */
+export const PLANET_THEMES = {
+  terra: {
+    name: 'Terra',
+    texture: 'earth',
+    surface: { brightness: 1.0, roughness: 0.95 },
     atmosphere: 0x6ad6ff,
-    sky: { top: 0x0a0f1f, bottom: 0x05060d, glow: 0x3a2a5a },
-    grass: { color: 0x4b7a1e, coverage: 0.7, density: 1.0 },
-    enemies: { base: 2, max: 4, speedMax: 0.7 },
+    atmosphereIntensity: 0.6,
+    sky: { top: 0x0a0f1f, bottom: 0x05060d, glow: 0x2a3a6a },
+    grass: { color: 0x4b7a1e, coverage: 0.5, density: 1.0 }, // habitable → keep grass
   },
-  {
-    id: 'desert',
-    name: 'Deserto',
-    radius: 22,
-    goal: 11,
-    surface: { grass: 0xc9a24a, dirt: 0x9a6a2e, patchScale: 2.4, brightness: 1.7 },
-    atmosphere: 0xffce7a,
-    sky: { top: 0x1a1410, bottom: 0x0a0705, glow: 0x6a4a1a },
-    grass: { color: 0x9c8a3c, coverage: 0.18, density: 0.6 },
-    enemies: { base: 2, max: 5, speedMax: 0.8 },
+  marte: {
+    name: 'Marte',
+    texture: 'mars',
+    surface: { brightness: 1.05, roughness: 1.0 },
+    atmosphere: 0xd2723a,
+    atmosphereIntensity: 0.4,
+    sky: { top: 0x1a0d08, bottom: 0x0a0503, glow: 0x6a3a1a },
+    grass: { coverage: 0 },
   },
-  {
-    id: 'tundra',
-    name: 'Mundo Gelado',
-    radius: 28,
-    goal: 14,
-    surface: { grass: 0xdfeaf5, dirt: 0x9fb6c8, patchScale: 2.8, brightness: 1.5 },
-    atmosphere: 0xbfe8ff,
-    sky: { top: 0x0b1626, bottom: 0x05080f, glow: 0x274a6a },
-    grass: { color: 0xbfe0e8, coverage: 0.3, density: 0.7 },
-    enemies: { base: 3, max: 5, speedMax: 0.85 },
+  lua: {
+    name: 'Lua',
+    texture: 'moon',
+    surface: { brightness: 1.1, roughness: 1.0 },
+    atmosphere: 0x9fb0c8,
+    atmosphereIntensity: 0.22,
+    sky: { top: 0x05070d, bottom: 0x02030a, glow: 0x1a2740 },
+    grass: { coverage: 0 },
   },
-  {
-    id: 'volcano',
-    name: 'Planeta Vulcânico',
-    radius: 20,
-    goal: 16,
-    surface: { grass: 0x7a2a20, dirt: 0x301010, patchScale: 3.2, brightness: 1.7 },
-    atmosphere: 0xff6a30,
-    sky: { top: 0x1a0a08, bottom: 0x080302, glow: 0xff4015 },
-    grass: { color: 0x8a3a1a, coverage: 0.25, density: 0.6 },
-    enemies: { base: 3, max: 6, speedMax: 0.92 },
+  venus: {
+    name: 'Vênus',
+    texture: 'venus',
+    surface: { brightness: 1.05, roughness: 0.9 },
+    atmosphere: 0xffc46a,
+    atmosphereIntensity: 0.7,
+    sky: { top: 0x1a1206, bottom: 0x0a0703, glow: 0x7a5210 },
+    grass: { coverage: 0 },
   },
-  {
-    id: 'alien',
-    name: 'Mundo Alienígena',
-    radius: 34,
-    goal: 20,
-    surface: { grass: 0x8a3ad6, dirt: 0x3a1a5a, patchScale: 2.6, brightness: 1.7 },
-    atmosphere: 0xc06aff,
-    sky: { top: 0x140a26, bottom: 0x07040f, glow: 0x7a2acc },
-    grass: { color: 0x9a4ae0, coverage: 0.45, density: 0.9 },
-    enemies: { base: 3, max: 6, speedMax: 0.95 },
+  jupiter: {
+    name: 'Júpiter',
+    texture: 'jupiter',
+    surface: { brightness: 1.0, roughness: 0.85 },
+    atmosphere: 0xe8b07a,
+    atmosphereIntensity: 0.6,
+    sky: { top: 0x140d08, bottom: 0x070403, glow: 0x5a3a1a },
+    grass: { coverage: 0 },
   },
+  mercurio: {
+    name: 'Mercúrio',
+    texture: 'mercury',
+    surface: { brightness: 1.1, roughness: 1.0 },
+    atmosphere: 0xbfae90,
+    atmosphereIntensity: 0.25,
+    sky: { top: 0x070707, bottom: 0x030303, glow: 0x2a2620 },
+    grass: { coverage: 0 },
+  },
+};
+
+/** Build a campaign level by referencing a shared planet theme. */
+const level = (planetKey, radius, goal, enemies) => ({
+  id: planetKey,
+  ...PLANET_THEMES[planetKey],
+  radius,
+  goal,
+  enemies,
+});
+
+export const LEVELS = [
+  level('terra', 16, 8, { base: 2, max: 4, speedMax: 0.7 }),
+  level('marte', 22, 11, { base: 2, max: 5, speedMax: 0.8 }),
+  level('lua', 18, 14, { base: 3, max: 5, speedMax: 0.85 }),
+  level('venus', 24, 16, { base: 3, max: 6, speedMax: 0.92 }),
+  level('jupiter', 34, 20, { base: 3, max: 6, speedMax: 0.95 }),
 ];
 
 const UNLOCK_KEY = 'snake3d.unlocked';
