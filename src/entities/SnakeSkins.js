@@ -1,10 +1,15 @@
 import * as THREE from 'three';
+import { getScaleTexture } from './SnakeTexture.js';
 
 /**
  * Preset snake skins. Each defines body/head colors and an optional `bands`
  * array for striped patterns rendered via vertex colors in TubeBody.
  *
  * bands: array of hex colors cycled every `bandLength` tube-t units.
+ *
+ * Emissive is kept low so the snake reads as real, lit skin (a procedural
+ * scale bump map does the rest) rather than a neon tube — except the "cosmic"
+ * skin, which stays a bit glowy on purpose.
  */
 export const SKINS = {
   cosmic: {
@@ -14,9 +19,9 @@ export const SKINS = {
     bodyEmissive: 0x17c4b2,
     headColor: 0x6cffe9,
     headEmissive: 0x2fe6d2,
-    emissiveIntensity: 1.05,
+    emissiveIntensity: 0.55,
     metalness: 0.0,
-    roughness: 0.22,
+    roughness: 0.35,
   },
   emerald: {
     name: 'Jiboia Esmeralda',
@@ -25,9 +30,9 @@ export const SKINS = {
     bodyEmissive: 0x0e4f1c,
     headColor: 0x52d46e,
     headEmissive: 0x1c7a34,
-    emissiveIntensity: 0.9,
-    metalness: 0.1,
-    roughness: 0.3,
+    emissiveIntensity: 0.28,
+    metalness: 0.05,
+    roughness: 0.45,
   },
   coral: {
     name: 'Cobra Coral',
@@ -36,9 +41,9 @@ export const SKINS = {
     bodyEmissive: 0x6a0808,
     headColor: 0xee3333,
     headEmissive: 0x880000,
-    emissiveIntensity: 0.8,
-    metalness: 0.05,
-    roughness: 0.38,
+    emissiveIntensity: 0.25,
+    metalness: 0.0,
+    roughness: 0.5,
     // alternating bands: red, black, yellow — classic coral snake
     bands: [0xcc2222, 0xcc2222, 0x111111, 0xf0c030, 0x111111],
     bandLength: 0.07,
@@ -50,9 +55,9 @@ export const SKINS = {
     bodyEmissive: 0x091e60,
     headColor: 0x3d7ae8,
     headEmissive: 0x1a3a90,
-    emissiveIntensity: 1.2,
-    metalness: 0.35,
-    roughness: 0.15,
+    emissiveIntensity: 0.4,
+    metalness: 0.25,
+    roughness: 0.3,
   },
   cobra: {
     name: 'Cobra Real',
@@ -61,9 +66,9 @@ export const SKINS = {
     bodyEmissive: 0x3d2e08,
     headColor: 0xc09030,
     headEmissive: 0x6a4810,
-    emissiveIntensity: 0.85,
-    metalness: 0.25,
-    roughness: 0.4,
+    emissiveIntensity: 0.3,
+    metalness: 0.15,
+    roughness: 0.5,
     // golden-brown bands like a king cobra hood pattern
     bands: [0x8b6820, 0x8b6820, 0x8b6820, 0xe8c050],
     bandLength: 0.12,
@@ -91,6 +96,19 @@ export function makeSkinMaterials(skinKey) {
     roughness: s.roughness,
     metalness: s.metalness,
   });
+
+  // Procedural scale relief (no-op in headless tests where there's no DOM).
+  const scaleTex = getScaleTexture();
+  if (scaleTex) {
+    bodyMat.bumpMap = scaleTex;
+    bodyMat.bumpScale = 0.035;
+    // Head scales: a separate clone repeated to fit the small sphere UVs.
+    const headTex = scaleTex.clone();
+    headTex.needsUpdate = true;
+    headTex.repeat.set(4, 3);
+    headMat.bumpMap = headTex;
+    headMat.bumpScale = 0.03;
+  }
 
   return { bodyMat, headMat };
 }

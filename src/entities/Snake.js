@@ -20,12 +20,13 @@ export class Snake extends Crawler {
       turnRate: 1.95,
       segmentSpacing: 0.045,
       segmentCount: 14,
-      thickness: 0.6,
-      taperTail: 0.14,   // taper more aggressively — thinner body vs head
-      radialSegments: 14,
-      waveAmp: 0.32,
+      thickness: 0.42,   // slimmer body — smaller relative to the planet
+      taperTail: 0.13,   // taper more aggressively — thinner tail vs head
+      radialSegments: 16,
+      waveAmp: 0.26,
       waveFreq: 0.55,
       waveSpeed: 7,
+      headSway: 0.17,    // head yaws with the slither for a lifelike crawl
       bodyMaterial: bodyMat,
       headMaterial: headMat,
     });

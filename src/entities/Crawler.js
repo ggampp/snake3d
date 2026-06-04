@@ -27,13 +27,14 @@ export class Crawler {
     this.segmentCount = opts.segmentCount ?? 12;
     this.thickness = opts.thickness ?? 0.55;
     this.taperTail = opts.taperTail ?? 0.25;
-    // Lift above planet surface — must clear the tallest grass blade (~0.9 units)
-    this.surfaceLift = opts.surfaceLift ?? Math.max(this.thickness * 0.85, 1.0);
+    // Lift the body so it rests just on the surface (and clears low grass).
+    this.surfaceLift = opts.surfaceLift ?? Math.max(this.thickness * 0.9, 0.8);
 
-    // Lateral slither wave
+    // Lateral slither wave + head sway
     this.waveAmp = opts.waveAmp ?? 0;
     this.waveFreq = opts.waveFreq ?? 0.5;
     this.waveSpeed = opts.waveSpeed ?? 6;
+    this.headSway = opts.headSway ?? 0;
     this._wavePhase = Math.random() * Math.PI * 2;
 
     this.group = new THREE.Group();
@@ -158,5 +159,11 @@ export class Crawler {
     const right = new THREE.Vector3().crossVectors(up, fwd).normalize();
     const mtx = new THREE.Matrix4().makeBasis(right, up.clone(), fwd.clone());
     this.headMesh.quaternion.setFromRotationMatrix(mtx);
+    // Head leads the slither: a gentle yaw about the surface normal, plus a
+    // touch of pitch, both synced to the body wave (only while moving).
+    if (this.headSway > 0) {
+      this.headMesh.rotateY(Math.sin(this._wavePhase) * this.headSway);
+      this.headMesh.rotateX(Math.cos(this._wavePhase * 2) * this.headSway * 0.25);
+    }
   }
 }
