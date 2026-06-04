@@ -578,4 +578,20 @@ html, body {
 .level-name { font-size: 16px; font-weight: 700; color: var(--text); }
 .level-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
 
+/* ── Texture attribution (CC BY 4.0) ───────────────── */
+.overlay-credit {
+  margin: 14px 0 0;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  opacity: 0.75;
+}
+
+.overlay-credit a {
+  color: var(--teal);
+  text-decoration: none;
+}
+
+.overlay-credit a:hover { text-decoration: underline; }
+
 [hidden] { display: none !important; }

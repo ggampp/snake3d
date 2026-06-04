@@ -16,7 +16,8 @@ import { Snake } from '../src/entities/Snake.js';
 import { EnemyWorm } from '../src/entities/EnemyWorm.js';
 import { EnergyField } from '../src/entities/EnergyField.js';
 import { PowerUpField } from '../src/entities/PowerUpField.js';
-import { LEVELS, getUnlocked, setUnlocked } from '../src/world/Levels.js';
+import { LEVELS, PLANET_THEMES, getUnlocked, setUnlocked } from '../src/world/Levels.js';
+import { PLANET_TEXTURES } from '../src/world/PlanetTextures.js';
 
 let failures = 0;
 const ok = (cond, msg) => {
@@ -197,6 +198,24 @@ const ok = (cond, msg) => {
     const onBody = worm.segments[2].clone();
     ok(worm.hits(onBody, 0.02), `enemy hit detection works at radius ${r}`);
   }
+}
+
+// 15. Planet textures: every level/theme points at a real, registered texture.
+{
+  const validKeys = Object.keys(PLANET_TEXTURES);
+  ok(validKeys.length >= 5, `texture registry has the planet maps (${validKeys.length})`);
+  ok(
+    LEVELS.every((l) => validKeys.includes(l.texture)),
+    'every campaign level references a known planet texture'
+  );
+  ok(
+    Object.values(PLANET_THEMES).every((t) => validKeys.includes(t.texture)),
+    'every planet theme references a known planet texture'
+  );
+  // Hybrid look: exactly the habitable world keeps grass, the rest are bare.
+  const grassy = LEVELS.filter((l) => (l.grass?.coverage ?? 0) > 0);
+  ok(grassy.length >= 1 && grassy.every((l) => l.texture === 'earth'),
+    'only habitable (Earth) levels keep grass');
 }
 
 console.log(failures === 0 ? '\nALL TESTS PASSED' : `\n${failures} TEST(S) FAILED`);
