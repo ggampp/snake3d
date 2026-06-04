@@ -14,7 +14,8 @@ export function buildTaperedTube(
   radialSegments = 12,
   taperTail = 0.25,
   getColor = null,
-  getRadiusScale = null
+  getRadiusScale = null,
+  uvAround = 7
 ) {
   const curve = new THREE.CatmullRomCurve3(pointsWorld, false, 'catmullrom', 0.5);
   const tubularSegments = Math.max(8, (pointsWorld.length - 1) * 3);
@@ -22,15 +23,25 @@ export function buildTaperedTube(
 
   const positions = [];
   const normals = [];
+  const uvs = [];
   const colors = getColor ? [] : null;
   const indices = [];
   const P = new THREE.Vector3();
+  const Pprev = new THREE.Vector3();
   const N = new THREE.Vector3();
   const C = new THREE.Color();
+
+  // Anchor scales to the body in world units (≈ square) so they don't "swim"
+  // as the tube is rebuilt each frame; v runs with arc length from the head.
+  const alongDensity = uvAround / (2 * Math.PI * Math.max(radiusBase, 1e-3));
+  let arc = 0;
 
   for (let i = 0; i <= tubularSegments; i++) {
     const t = i / tubularSegments;
     curve.getPointAt(t, P);
+    if (i > 0) arc += P.distanceTo(Pprev);
+    Pprev.copy(P);
+    const vLong = arc * alongDensity;
     const nrm = frames.normals[i];
     const bin = frames.binormals[i];
     // taper: thickest at head (t=0), tapers to taperTail fraction at tail
@@ -52,6 +63,7 @@ export function buildTaperedTube(
       ).normalize();
       positions.push(P.x + N.x * r, P.y + N.y * r, P.z + N.z * r);
       normals.push(N.x, N.y, N.z);
+      uvs.push((j / radialSegments) * uvAround, vLong);
       if (colors) colors.push(C.r, C.g, C.b);
     }
   }
@@ -70,6 +82,7 @@ export function buildTaperedTube(
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   if (colors) geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geo.setIndex(indices);
   return geo;

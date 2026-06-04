@@ -74,6 +74,8 @@ src/
 │   ├── Crawler.js     base: caminho na esfera + corpo em tubo contínuo
 │   ├── TubeBody.js    gera o tubo (frames paralelos, com afinamento)
 │   ├── Snake.js       cobra do jogador (olhos, comer, colisão, escudo/turbo/pulo)
+│   ├── SnakeSkins.js  presets de skin (cores, bandas) + materiais com escamas
+│   ├── SnakeTexture.js textura procedural de escamas (bump map em canvas)
 │   ├── EnemyWorm.js   minhoca inimiga com IA de perambulação
 │   ├── EnergyField.js bolas de energia temporárias (pool fixo de luzes)
 │   ├── PowerUpField.js power-ups escudo/turbo (orbe + anel giratório)
