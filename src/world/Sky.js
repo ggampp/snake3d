@@ -132,4 +132,13 @@ export class Sky {
     if (this._starUniforms) this._starUniforms.uTime.value += dt;
     this.group.rotation.y += dt * 0.005;
   }
+
+  /** Swap the nebula gradient/glow colours for a level theme. */
+  setColors(sky) {
+    if (!sky || !this.nebula) return;
+    const u = this.nebula.material.uniforms;
+    if (sky.top != null) u.uTop.value.setHex(sky.top);
+    if (sky.bottom != null) u.uBottom.value.setHex(sky.bottom);
+    if (sky.glow != null) u.uGlow.value.setHex(sky.glow);
+  }
 }

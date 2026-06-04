@@ -503,4 +503,79 @@ html, body {
 
 .overlay-btn:active { transform: translateY(0); }
 
+/* ── Goal HUD line ─────────────────────────────────── */
+.hud-goal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--panel-border);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.hud-goal b { color: var(--teal); font-size: 14px; }
+
+/* ── Mode toggle ───────────────────────────────────── */
+.mode-toggle {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 10px;
+}
+
+.mode-btn {
+  flex: 1;
+  appearance: none;
+  cursor: pointer;
+  padding: 8px 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--panel-border);
+  border-radius: 9px;
+  transition: all 0.15s;
+}
+
+.mode-btn.active {
+  color: #04161a;
+  background: linear-gradient(180deg, #7afceb, #36cdb9);
+  border-color: transparent;
+}
+
+/* ── Level picker ──────────────────────────────────── */
+.level-picker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+}
+
+.level-arrow {
+  appearance: none;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  font-size: 15px;
+  color: var(--text);
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.level-arrow:hover:not(:disabled) { background: rgba(95,245,224,0.15); }
+.level-arrow:disabled { opacity: 0.3; cursor: default; }
+
+.level-info { flex: 1; text-align: center; }
+.level-name { font-size: 16px; font-weight: 700; color: var(--text); }
+.level-meta { font-size: 11px; color: var(--text-dim); margin-top: 2px; }
+
 [hidden] { display: none !important; }
