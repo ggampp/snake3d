@@ -6,6 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { Planet } from './world/Planet.js';
 import { Sky } from './world/Sky.js';
 import { Grass } from './world/Grass.js';
+import { LEVELS, getUnlocked, setUnlocked } from './world/Levels.js';
 import { Snake } from './entities/Snake.js';
 import { EnergyField } from './entities/EnergyField.js';
 import { PowerUpField } from './entities/PowerUpField.js';
@@ -18,16 +19,21 @@ import { Leaderboard } from './core/Leaderboard.js';
 import { Hud } from './ui/Hud.js';
 
 const DEFAULT_PLANET_SIZE = 'medium';
-const PLANET_SIZES = {
-  small: 16,
-  medium: 20,
-  large: 26,
-};
+const PLANET_SIZES = { small: 16, medium: 20, large: 26 };
 const MENU_VIEWS = {
   near: { distance: 46, zoom: 2.2 },
   normal: { distance: 58, zoom: 3.5 },
   far: { distance: 72, zoom: 4.8 },
 };
+
+// Theme used by the free-play mode (a lush grassland, any planet size).
+const FREE_THEME = {
+  surface: { grass: 0x5a8530, dirt: 0x6a4a2e, patchScale: 3.0, brightness: 1.6 },
+  atmosphere: 0x6ad6ff,
+  sky: { top: 0x0a0f1f, bottom: 0x05060d, glow: 0x3a2a5a },
+  grass: { color: 0x4b7a1e, coverage: 0.65, density: 1.0 },
+};
+
 const MAX_ENEMIES   = 6;
 const BASE_ENEMIES  = 2;
 const SHIELD_TIME   = 6;
@@ -36,7 +42,18 @@ const TURBO_TIME    = 5;
 class Game {
   constructor() {
     this.canvas = document.getElementById('game');
+
+    this.mode = localStorage.getItem('snake3d.mode') || 'campaign';
+    this.levelIndex = Math.min(getUnlocked(), LEVELS.length - 1);
+
+    // Active world setup (radius / theme / goal / enemy config).
     this.planetRadius = this._loadPlanetRadius();
+    this.theme = FREE_THEME;
+    this.goal = 0;
+    this.fruits = 0;
+    this.enemyCfg = { base: BASE_ENEMIES, max: MAX_ENEMIES, speedMax: 0.92 };
+    this._builtKey = '';
+
     this._initRenderer();
     this._initScene();
     this._initPost();
@@ -60,6 +77,11 @@ class Game {
     this.clock = new THREE.Clock();
     window.addEventListener('resize', () => this._onResize());
 
+    // Sync the menu UI with the saved mode/level and show the matching planet.
+    this.hud.setMode(this.mode);
+    this.hud.setLevelInfo(this._levelMenuInfo());
+    this._applySetup();
+
     this._refreshBoard();
     this.hud.showStart(this._board);
     this._loop();
@@ -75,21 +97,48 @@ class Game {
     this.hud.onMuteToggle = () => this.hud.setMuted(this.audio.toggleMute());
     this.hud.onZoom       = (d) => this.chase.addZoom(d);
     this.hud.onMenuViewChange = () => this._setMenuView();
+
     this.hud.onPlanetSizeChange = () => {
       if (this.state === 'playing' || this.state === 'paused') return;
-      this._rebuildWorld(this.hud.getPlanetRadius(), this.hud.getSkin());
+      this._applySetup();
       this._setMenuView();
+    };
+
+    this.hud.onModeChange = (mode) => {
+      if (this.state === 'playing' || this.state === 'paused') return;
+      this.mode = mode;
+      localStorage.setItem('snake3d.mode', mode);
+      this.hud.setLevelInfo(this._levelMenuInfo());
+      this._applySetup();
+      this._setMenuView();
+    };
+
+    this.hud.onLevelChange = (delta) => {
+      if (this.state === 'playing' || this.state === 'paused') return;
+      const unlocked = getUnlocked();
+      const next = Math.max(0, Math.min(unlocked, this.levelIndex + delta));
+      if (next === this.levelIndex) return;
+      this.levelIndex = next;
+      this.hud.setLevelInfo(this._levelMenuInfo());
+      this._applySetup();
+      this._setMenuView();
+    };
+
+    this.hud.onNextLevel = () => {
+      this.audio.resume();
+      this._goToNextLevel();
     };
 
     this.input.onConfirm = () => {
       this.audio.resume();
       if (this.state === 'menu' || this.state === 'dead') this.start();
+      else if (this.state === 'levelComplete') this._goToNextLevel();
     };
     this.input.onJump = () => {
       this.audio.resume();
       if (this.state === 'playing') {
         this.snake.jump(() => this.audio.jump());
-      } else if (this.state !== 'paused') {
+      } else if (this.state === 'menu' || this.state === 'dead') {
         this.start();
       }
     };
@@ -128,13 +177,14 @@ class Game {
 
     this.worldObjects = [];
 
-    this.planet = new Planet(this.planetRadius);
+    this.planet = new Planet(this.planetRadius, this.theme);
     this.scene.add(this.planet.group);
     this.worldObjects.push(this.planet.group);
+
     this.sky = new Sky();
     this.scene.add(this.sky.group);
-    // Grass slightly above planet surface; snake surfaceLift clears it
-    this.grass = new Grass(this.planetRadius * 1.001, this._grassCount(this.planetRadius));
+
+    this.grass = new Grass(this.planetRadius * 1.001, this._grassCount(this.planetRadius), this.theme.grass);
     this.planet.group.add(this.grass.mesh);
 
     const sun = new THREE.DirectionalLight(0xfff1dc, 2.0);
@@ -150,7 +200,7 @@ class Game {
     this.scene.add(this.snake.group);
     this.worldObjects.push(this.snake.group);
 
-    this.energy   = new EnergyField(this.planetRadius);
+    this.energy = new EnergyField(this.planetRadius);
     this.scene.add(this.energy.group);
     this.worldObjects.push(this.energy.group);
     this.powerups = new PowerUpField(this.planetRadius);
@@ -173,11 +223,66 @@ class Game {
     this.worldObjects.push(this.explosions.group);
 
     this.chase = new ChaseCamera(this.camera, this.planetRadius);
-    this._setMenuView();
+    this.sky.setColors(this.theme.sky);
+    // The initial world is the default (free) theme; leave the key empty so the
+    // first _applySetup() rebuilds to the selected mode/level.
+    this._builtKey = '';
+  }
+
+  /** Resolve the world parameters for the current mode + menu selection. */
+  _setup() {
+    if (this.mode === 'campaign') {
+      const lvl = LEVELS[this.levelIndex] || LEVELS[0];
+      return {
+        radius: lvl.radius,
+        theme: lvl,
+        goal: lvl.goal,
+        enemies: lvl.enemies || { base: BASE_ENEMIES, max: MAX_ENEMIES, speedMax: 0.92 },
+        themeId: lvl.id,
+      };
+    }
+    return {
+      radius: this.hud ? this.hud.getPlanetRadius() : this.planetRadius,
+      theme: FREE_THEME,
+      goal: 0,
+      enemies: { base: BASE_ENEMIES, max: MAX_ENEMIES, speedMax: 0.92 },
+      themeId: 'free',
+    };
+  }
+
+  _setupKey(skinKey) {
+    const s = this._setup();
+    return `${s.radius}:${s.themeId}:${skinKey || (this.hud && this.hud.getSkin())}`;
+  }
+
+  _levelMenuInfo() {
+    const lvl = LEVELS[this.levelIndex] || LEVELS[0];
+    return {
+      index: this.levelIndex,
+      total: LEVELS.length,
+      name: lvl.name,
+      unlocked: getUnlocked(),
+      goal: lvl.goal,
+    };
+  }
+
+  /**
+   * Rebuild the world to match the current setup if anything changed (radius,
+   * theme or skin). Cheap no-op when nothing changed.
+   */
+  _applySetup() {
+    const skinKey = this.hud ? this.hud.getSkin() : (localStorage.getItem('snake3d.skin') || 'cosmic');
+    const key = this._setupKey(skinKey);
+    if (key === this._builtKey) return;
+    const setup = this._setup();
+    this._rebuildWorld(setup.radius, skinKey, setup.theme);
+    this.theme = setup.theme;
+    this.goal = setup.goal;
+    this.enemyCfg = setup.enemies;
+    this._builtKey = key;
   }
 
   _setMenuView() {
-    // Far view so the full planet is visible from the menu
     const key = this.hud?.getMenuView?.() || localStorage.getItem('snake3d.view') || 'normal';
     const view = MENU_VIEWS[key] || MENU_VIEWS.normal;
     const scale = this.planetRadius / PLANET_SIZES.medium;
@@ -195,16 +300,17 @@ class Game {
     return Math.round(1800 * (radius / PLANET_SIZES.medium) ** 2);
   }
 
-  _rebuildWorld(radius, skinKey) {
+  _rebuildWorld(radius, skinKey, theme = FREE_THEME) {
     for (const obj of this.worldObjects || []) this.scene.remove(obj);
     this.planetRadius = radius;
     this.worldObjects = [];
 
-    this.planet = new Planet(radius);
+    this.planet = new Planet(radius, theme);
     this.scene.add(this.planet.group);
     this.worldObjects.push(this.planet.group);
-    this.grass = new Grass(radius * 1.001, this._grassCount(radius));
+    this.grass = new Grass(radius * 1.001, this._grassCount(radius), theme.grass);
     this.planet.group.add(this.grass.mesh);
+    this.sky.setColors(theme.sky);
 
     this.snake = new Snake(radius, skinKey);
     this.scene.add(this.snake.group);
@@ -252,26 +358,23 @@ class Game {
   }
 
   start() {
-    // Rebuild snake if skin changed
-    const skinKey = this.hud.getSkin();
-    const nextRadius = this.hud.getPlanetRadius();
-    if (nextRadius !== this.planetRadius) {
-      this._rebuildWorld(nextRadius, skinKey);
-    } else if (this.snake.skinKey !== skinKey) {
-      this.scene.remove(this.snake.group);
-      this.worldObjects = this.worldObjects.filter((obj) => obj !== this.snake.group);
-      this.snake = new Snake(this.planetRadius, skinKey);
-      this.scene.add(this.snake.group);
-      this.worldObjects.push(this.snake.group);
-    }
+    // Make sure the world matches the selected mode/level/skin.
+    this._applySetup();
+
+    const setup = this._setup();
+    this.goal = setup.goal;
+    this.enemyCfg = setup.enemies;
+
     const menuView = MENU_VIEWS[this.hud.getMenuView()] || MENU_VIEWS.normal;
     this.chase.setZoom(menuView.zoom);
 
     this.score  = 0;
     this.kills  = 0;
+    this.fruits = 0;
     this.hud.setScore(0);
     this.hud.setPowerups({});
     this.hud.setStats({ kills: 0 });
+    this.hud.setGoal(this.mode === 'campaign' ? { collected: 0, goal: this.goal, name: LEVELS[this.levelIndex].name } : null);
     this.snake.reset();
     this.chase.reset();
     this.energy.reset();
@@ -279,7 +382,7 @@ class Game {
     this.shieldUntil = 0;
     this.turboUntil  = 0;
 
-    this.activeEnemies = BASE_ENEMIES;
+    this.activeEnemies = this.enemyCfg.base;
     this.enemies.forEach((worm, i) => {
       const on = i < this.activeEnemies;
       worm.group.visible = on;
@@ -310,17 +413,50 @@ class Game {
     this.kills++;
     this.audio.death();
 
-    // Explosion burst at the worm's head.
     const lift = this.planetRadius + worm.surfaceLift;
     const at = worm.position.clone().multiplyScalar(lift);
     this.explosions.trigger(at, 0xff4d6d);
 
-    // Turn the worm's whole length into collectible fruits.
     const segs = worm.segments;
     const stepN = Math.max(1, Math.floor(segs.length / 6));
     for (let k = 0; k < segs.length; k += stepN) {
       this.energy.spawnAt(segs[k], 1 + (k % 2 === 0 ? 1 : 0));
     }
+  }
+
+  /** Campaign: clear the level once the fruit goal is reached. */
+  _levelComplete() {
+    this.state = 'levelComplete';
+    this.snake.setTurbo(false);
+    const isLast = this.levelIndex >= LEVELS.length - 1;
+    if (!isLast) setUnlocked(this.levelIndex + 1);
+    this.audio.powerup('shield');
+    this._setMenuView();
+    this.hud.showLevelComplete({
+      name: LEVELS[this.levelIndex].name,
+      score: this.score,
+      isLast,
+      nextName: isLast ? null : LEVELS[this.levelIndex + 1].name,
+    });
+  }
+
+  /** Advance to the next campaign level (or back to menu after the last). */
+  _goToNextLevel() {
+    if (this.state !== 'levelComplete') return;
+    const isLast = this.levelIndex >= LEVELS.length - 1;
+    this.hud.hideLevelComplete();
+    if (isLast) {
+      this.state = 'menu';
+      this.levelIndex = 0;
+      this.hud.setLevelInfo(this._levelMenuInfo());
+      this._applySetup();
+      this._setMenuView();
+      this.hud.showStart(this._board);
+      return;
+    }
+    this.levelIndex += 1;
+    this.hud.setLevelInfo(this._levelMenuInfo());
+    this.start();
   }
 
   _gameOver() {
@@ -337,7 +473,7 @@ class Game {
   }
 
   _update(dt) {
-    // Paused: freeze the world entirely (the frame is still re-rendered).
+    // Paused / level-complete: freeze the world (frame still re-rendered).
     if (this.state === 'paused') return;
 
     this.sky.update(dt);
@@ -352,7 +488,6 @@ class Game {
       this.snake.setTurbo(turboRemain > 0);
 
       this.snake.setDifficulty(this.score);
-      // The snake only advances while the player holds the move key.
       const moving = this.input.forward;
       this.snake.update(dt, this.input.steer, moving);
 
@@ -361,11 +496,18 @@ class Game {
 
       this.energy.update(dt, this.snake.position, headR, (growth, score) => {
         this.score += score;
+        this.fruits += 1;
         this.snake.grow(growth);
-        this.snake.swallow(); // "gulp" bulge travels down the body
+        this.snake.swallow();
         this.audio.eat(score);
         this.hud.setScore(this.score);
+        if (this.mode === 'campaign') {
+          this.hud.setGoal({ collected: this.fruits, goal: this.goal, name: LEVELS[this.levelIndex].name });
+          if (this.fruits >= this.goal) this._levelComplete();
+        }
       });
+
+      if (this.state !== 'playing') return; // level cleared mid-frame
 
       this.powerups.update(dt, this.snake.position, headR, (type) => {
         if (type === 'shield') this.shieldUntil = now + SHIELD_TIME;
@@ -373,38 +515,32 @@ class Game {
         this.audio.powerup(type);
       });
 
-      const desired   = Math.min(MAX_ENEMIES, BASE_ENEMIES + Math.floor(this.score / 6));
-      const wormSpeed = Math.min(0.92, 0.42 + this.score * 0.004);
+      const ecfg = this.enemyCfg;
+      const desired   = Math.min(ecfg.max, ecfg.base + Math.floor(this.score / 6));
+      const wormSpeed = Math.min(ecfg.speedMax, 0.42 + this.score * 0.004);
       while (this.activeEnemies < desired) {
         this._activateEnemy(this.activeEnemies++);
       }
 
-      // Enemy updates + collisions.
       for (let i = 0; i < this.activeEnemies; i++) {
         const worm = this.enemies[i];
-
-        // Respawn dead worms after their timer.
         if (worm._dead) {
           worm.respawnIn -= dt;
           if (worm.respawnIn <= 0) this._activateEnemy(i);
           continue;
         }
-
         worm.speed = wormSpeed;
         worm.update(dt);
 
-        // Enemy touching the player's HEAD ends the run (unless invincible).
         if (!this.snake.invincible && worm.hits(this.snake.position, headAngle)) {
           this._gameOver();
           break;
         }
-        // Enemy touching the player's BODY (the "middle") destroys the enemy.
         if (worm.touches(this.snake.segments, headR / this.planetRadius, 4)) {
           this._killEnemy(i);
         }
       }
 
-      // Enemy-vs-enemy: both worms are destroyed on contact.
       if (this.state === 'playing') {
         for (let i = 0; i < this.activeEnemies; i++) {
           const a = this.enemies[i];

@@ -1,13 +1,23 @@
 import * as THREE from 'three';
 
+const DEFAULT_THEME = {
+  surface: { grass: 0x5a8530, dirt: 0x6a4a2e, patchScale: 3.0, brightness: 1.6 },
+  atmosphere: 0x6ad6ff,
+};
+
 /**
- * The planet: a shaded sphere with a green/earth gradient and a fresnel
+ * The planet: a shaded sphere with a grass/earth surface and a fresnel
  * atmosphere shell that gives the glowing rim seen in the reference video.
+ *
+ * Surface colours and the atmosphere tint are driven by a `theme` so each
+ * campaign level can look different (desert, ice, volcano, …) without changing
+ * the shader. Colours are uniforms, so they can also be swapped at runtime.
  */
 export class Planet {
-  constructor(radius = 20) {
+  constructor(radius = 20, theme = DEFAULT_THEME) {
     this.radius = radius;
     this.group = new THREE.Group();
+    this.theme = theme;
 
     this._buildSurface();
     this._buildAtmosphere();
@@ -15,11 +25,10 @@ export class Planet {
 
   _buildSurface() {
     const geo = new THREE.SphereGeometry(this.radius, 96, 96);
+    const s = this.theme.surface || DEFAULT_THEME.surface;
 
-    // Procedural-ish look without textures: blend grass-green over a darker
-    // base by latitude + a little noise, computed in the shader.
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x6f8f3a,
+      color: 0xffffff,
       roughness: 0.95,
       metalness: 0.0,
       flatShading: false,
@@ -27,6 +36,10 @@ export class Planet {
 
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = { value: 0 };
+      shader.uniforms.uGrass = { value: new THREE.Color(s.grass) };
+      shader.uniforms.uDirt = { value: new THREE.Color(s.dirt) };
+      shader.uniforms.uPatchScale = { value: s.patchScale ?? 3.0 };
+      shader.uniforms.uBrightness = { value: s.brightness ?? 1.6 };
       this._surfaceUniforms = shader.uniforms;
       shader.vertexShader = shader.vertexShader
         .replace(
@@ -44,19 +57,20 @@ export class Planet {
           '#include <common>',
           `#include <common>
            varying vec3 vWorldPos;
+           uniform vec3 uGrass;
+           uniform vec3 uDirt;
+           uniform float uPatchScale;
+           uniform float uBrightness;
            float hash(vec3 p){ return fract(sin(dot(p, vec3(12.9898,78.233,37.719)))*43758.5453); }`
         )
         .replace(
           '#include <color_fragment>',
           `#include <color_fragment>
            vec3 n = normalize(vWorldPos);
-           float patches = hash(floor(vWorldPos * 3.0));
-           vec3 grass = vec3(0.36, 0.52, 0.18);
-           vec3 dirt  = vec3(0.42, 0.34, 0.20);
-           vec3 surf = mix(dirt, grass, smoothstep(0.25, 0.7, patches));
-           // subtle darkening toward poles for depth
+           float patches = hash(floor(vWorldPos * uPatchScale));
+           vec3 surf = mix(uDirt, uGrass, smoothstep(0.25, 0.7, patches));
            surf *= 0.85 + 0.15 * (1.0 - abs(n.y));
-           diffuseColor.rgb *= surf * 1.6;`
+           diffuseColor.rgb *= surf * uBrightness;`
         );
     };
 
@@ -73,7 +87,7 @@ export class Planet {
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       uniforms: {
-        uColor: { value: new THREE.Color(0x6ad6ff) },
+        uColor: { value: new THREE.Color(this.theme.atmosphere ?? DEFAULT_THEME.atmosphere) },
         uPower: { value: 5.5 },
         uIntensity: { value: 0.55 },
       },

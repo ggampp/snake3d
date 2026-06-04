@@ -30,6 +30,21 @@ export class Hud {
     this.menuView   = document.getElementById('menu-view');
     this.planetSize = document.getElementById('planet-size');
 
+    // Campaign / free-mode UI
+    this.goalEl       = document.getElementById('hud-goal');
+    this.modeBtns     = document.querySelectorAll('.mode-btn');
+    this.levelPicker  = document.getElementById('level-picker');
+    this.freeOptions  = document.getElementById('free-options');
+    this.levelNameEl  = document.getElementById('level-name');
+    this.levelMetaEl  = document.getElementById('level-meta');
+    this.levelPrevBtn = document.getElementById('level-prev');
+    this.levelNextBtn = document.getElementById('level-next');
+
+    this.levelOverlay = document.getElementById('level-overlay');
+    this.levelTitle   = document.getElementById('level-title');
+    this.levelSub     = document.getElementById('level-sub');
+    this.levelBtn     = document.getElementById('level-btn');
+
     this.muteBtn    = document.getElementById('btn-mute');
     this.zoomInBtn  = document.getElementById('btn-zoom-in');
     this.zoomOutBtn = document.getElementById('btn-zoom-out');
@@ -50,6 +65,12 @@ export class Hud {
     this.onSkinChange = null;
     this.onMenuViewChange = null;
     this.onPlanetSizeChange = null;
+    this.onModeChange = null;
+    this.onLevelChange = null;
+    this.onNextLevel = null;
+
+    this._mode = 'campaign';
+    this._initModeControls();
 
     this.btn.addEventListener('click', () => {
       this._persistName();
@@ -59,6 +80,73 @@ export class Hud {
     this.muteBtn.addEventListener('click', () => this.onMuteToggle && this.onMuteToggle());
     this.zoomInBtn.addEventListener('click', () => this.onZoom && this.onZoom(-0.3));
     this.zoomOutBtn.addEventListener('click', () => this.onZoom && this.onZoom(0.3));
+  }
+
+  _initModeControls() {
+    this.modeBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.mode;
+        if (mode === this._mode) return;
+        this.setMode(mode);
+        if (this.onModeChange) this.onModeChange(mode);
+      });
+    });
+    if (this.levelPrevBtn) {
+      this.levelPrevBtn.addEventListener('click', () => this.onLevelChange && this.onLevelChange(-1));
+    }
+    if (this.levelNextBtn) {
+      this.levelNextBtn.addEventListener('click', () => this.onLevelChange && this.onLevelChange(1));
+    }
+    if (this.levelBtn) {
+      this.levelBtn.addEventListener('click', () => this.onNextLevel && this.onNextLevel());
+    }
+  }
+
+  /** Switch the menu between 'campaign' and 'free' layouts. */
+  setMode(mode) {
+    this._mode = mode;
+    this.modeBtns.forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+    if (this.levelPicker) this.levelPicker.hidden = mode !== 'campaign';
+    if (this.freeOptions) this.freeOptions.hidden = mode !== 'free';
+  }
+
+  getMode() {
+    return this._mode;
+  }
+
+  /** Update the campaign level selector (name, position, locked arrows). */
+  setLevelInfo({ index, total, name, unlocked, goal }) {
+    if (this.levelNameEl) this.levelNameEl.textContent = name;
+    if (this.levelMetaEl) {
+      this.levelMetaEl.textContent = `Fase ${index + 1}/${total} · meta ${goal} frutas`;
+    }
+    if (this.levelPrevBtn) this.levelPrevBtn.disabled = index <= 0;
+    if (this.levelNextBtn) this.levelNextBtn.disabled = index >= Math.min(unlocked, total - 1);
+  }
+
+  /** Show/update the in-game fruit goal, or hide it (free mode → null). */
+  setGoal(info) {
+    if (!this.goalEl) return;
+    if (!info) {
+      this.goalEl.hidden = true;
+      return;
+    }
+    this.goalEl.hidden = false;
+    this.goalEl.innerHTML = `<span>🍎 ${info.name}</span><b>${info.collected}/${info.goal}</b>`;
+  }
+
+  showLevelComplete({ name, score, isLast, nextName }) {
+    if (!this.levelOverlay) return;
+    this.levelTitle.textContent = isLast ? 'Você zerou! 🎉' : `${name} concluída!`;
+    this.levelSub.innerHTML = isLast
+      ? `Você completou todas as fases. Pontuação: <b>${score}</b>`
+      : `Pontuação: <b>${score}</b> · Próximo: <b>${nextName}</b>`;
+    this.levelBtn.textContent = isLast ? 'Voltar ao menu' : 'Próximo planeta';
+    this.levelOverlay.classList.remove('hidden');
+  }
+
+  hideLevelComplete() {
+    if (this.levelOverlay) this.levelOverlay.classList.add('hidden');
   }
 
   _initMenuOptions() {
@@ -168,6 +256,7 @@ export class Hud {
     this.summary.hidden      = true;
     this.hint.hidden         = false;
     this.btn.textContent     = 'Jogar';
+    this.setGoal(null);
     this.renderBoard(board);
     this.overlay.classList.remove('hidden');
   }
@@ -186,6 +275,7 @@ export class Hud {
     this.summary.hidden      = false;
     this.hint.hidden         = true;
     this.btn.textContent     = 'Jogar de novo';
+    this.setGoal(null);
     this.renderBoard(board, undefined, score);
     this.overlay.classList.remove('hidden');
   }

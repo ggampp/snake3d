@@ -1,10 +1,22 @@
 // Headless logic tests for the core game math/entities (no renderer needed).
+// Minimal localStorage shim so modules that persist settings work under Node.
+if (typeof globalThis.localStorage === 'undefined') {
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => store.set(k, String(v)),
+    removeItem: (k) => store.delete(k),
+    clear: () => store.clear(),
+  };
+}
+
 import * as THREE from 'three';
 import { advance, turn, arcDistance, reorthonormalize } from '../src/core/SphereMath.js';
 import { Snake } from '../src/entities/Snake.js';
 import { EnemyWorm } from '../src/entities/EnemyWorm.js';
 import { EnergyField } from '../src/entities/EnergyField.js';
 import { PowerUpField } from '../src/entities/PowerUpField.js';
+import { LEVELS, getUnlocked, setUnlocked } from '../src/world/Levels.js';
 
 let failures = 0;
 const ok = (cond, msg) => {
@@ -156,6 +168,35 @@ const ok = (cond, msg) => {
   ok(snake._radiusScaleFn(0) > 1, 'bulge widens the body near the head');
   for (let i = 0; i < 80; i++) snake.update(0.016, 0, true); // run it off the tail
   ok(snake._radiusScaleFn === null, 'bulge clears after travelling the body');
+}
+
+// 13. Levels: data is well-formed and unlock progression is monotonic.
+{
+  ok(LEVELS.length >= 3, `campaign has multiple levels (${LEVELS.length})`);
+  const radiiVary = new Set(LEVELS.map((l) => l.radius)).size > 1;
+  ok(radiiVary, 'levels use different planet sizes');
+  const allThemed = LEVELS.every((l) => l.surface && l.sky && l.grass && l.goal > 0);
+  ok(allThemed, 'every level has surface/sky/grass theme and a fruit goal');
+
+  // Unlock helpers clamp and never regress.
+  localStorage.clear();
+  ok(getUnlocked() === 0, 'first level unlocked by default');
+  setUnlocked(2);
+  ok(getUnlocked() === 2, 'unlock advances to a reached level');
+  setUnlocked(1);
+  ok(getUnlocked() === 2, 'unlock never regresses to a lower level');
+  setUnlocked(999);
+  ok(getUnlocked() === LEVELS.length - 1, 'unlock clamps to the last level');
+}
+
+// 14. Collision math is radius-independent (works on any planet size).
+{
+  for (const r of [12, 20, 34]) {
+    const worm = new EnemyWorm(r);
+    worm.reset();
+    const onBody = worm.segments[2].clone();
+    ok(worm.hits(onBody, 0.02), `enemy hit detection works at radius ${r}`);
+  }
 }
 
 console.log(failures === 0 ? '\nALL TESTS PASSED' : `\n${failures} TEST(S) FAILED`);

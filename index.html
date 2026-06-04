@@ -20,6 +20,7 @@
         <li><span>Abates</span><b id="hud-kills">0</b></li>
       </ul>
       <div id="hud-powerups" class="hud-powerups"></div>
+      <div id="hud-goal" class="hud-goal" hidden></div>
     </div>
 
     <!-- Top-right controls -->
@@ -40,6 +41,15 @@
       <div class="pause-card">
         <div class="pause-title">⏸ Pausado</div>
         <div class="pause-sub">Pressione <b>P</b> para continuar</div>
+      </div>
+    </div>
+
+    <!-- Level complete overlay -->
+    <div id="level-overlay" class="pause-overlay hidden">
+      <div class="pause-card">
+        <div id="level-title" class="pause-title">Fase concluída!</div>
+        <div id="level-sub" class="pause-sub">Pontuação: 0</div>
+        <button id="level-btn" class="overlay-btn" style="margin-top:16px">Próximo planeta</button>
       </div>
     </div>
 
@@ -68,6 +78,22 @@
           <div id="skin-name" class="skin-name">Serpente Cósmica</div>
         </div>
 
+        <!-- Mode toggle: campaign vs free play -->
+        <div class="mode-toggle">
+          <button class="mode-btn active" data-mode="campaign">🚀 Campanha</button>
+          <button class="mode-btn" data-mode="free">♾ Livre</button>
+        </div>
+
+        <!-- Campaign: level selector -->
+        <div id="level-picker" class="level-picker">
+          <button id="level-prev" class="level-arrow" title="Fase anterior">◀</button>
+          <div class="level-info">
+            <div id="level-name" class="level-name">Pradaria</div>
+            <div id="level-meta" class="level-meta">Fase 1/5 · meta 8 frutas</div>
+          </div>
+          <button id="level-next" class="level-arrow" title="Próxima fase">▶</button>
+        </div>
+
         <div class="menu-options">
           <label class="menu-option" for="menu-view">
             <span>Vis&atilde;o</span>
@@ -77,7 +103,8 @@
               <option value="far">Ampla</option>
             </select>
           </label>
-          <label class="menu-option" for="planet-size">
+          <!-- Free play: pick planet size -->
+          <label class="menu-option" id="free-options" for="planet-size" hidden>
             <span>Planeta</span>
             <select id="planet-size">
               <option value="small">Pequeno</option>

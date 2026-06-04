@@ -8,15 +8,17 @@ import { randomUnit, surfaceOrientation, anyTangent } from '../core/SphereMath.j
  * so the snake body (surfaceLift ≈ 1 unit) always sits cleanly above.
  */
 export class Grass {
-  constructor(radius, count = 1800) {
+  constructor(radius, count = 1800, opts = {}) {
     this.radius = radius;
+    const color = opts.color ?? 0x4b7a1e;
+    const coverage = opts.coverage ?? 0.65; // fraction of the planet with grass
 
     // Short, slightly wider blade for better readability at distance
     const blade = new THREE.ConeGeometry(0.055, 0.46, 4, 1, true);
     blade.translate(0, 0.23, 0); // pivot at base
 
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x4b7a1e,
+      color,
       roughness: 1.0,
       metalness: 0.0,
       side: THREE.DoubleSide,
@@ -49,7 +51,7 @@ export class Grass {
       pos.normalize();
 
       // Patchy coverage: skip positions where a low-freq hash says "bare"
-      if (!_grassCoverage(pos)) continue;
+      if (!_grassCoverage(pos, coverage)) continue;
 
       anyTangent(pos, heading);
       heading.applyAxisAngle(pos, Math.random() * Math.PI * 2).normalize();
@@ -73,20 +75,23 @@ export class Grass {
   }
 }
 
-/** Simple hash-based noise: returns true if this surface point should have grass. */
-function _grassCoverage(unit) {
-  // Low-frequency smooth noise by hashing grid cells of the unit sphere
+/**
+ * Smooth hash-based noise: true if this surface point should have grass.
+ * `coverage` (0..1) raises/lowers the threshold so each level can have more or
+ * less grass (e.g. a sparse desert vs. a lush meadow).
+ */
+function _grassCoverage(unit, coverage = 0.65) {
   const scale = 2.8;
   const x = unit.x * scale;
   const y = unit.y * scale;
   const z = unit.z * scale;
 
-  // Two overlapping sine waves give organic-looking continents
+  // Two overlapping sine waves give organic-looking continents (~0..1).
   const v =
     0.5 +
     0.3 * Math.sin(x * 1.7 + z * 0.9) * Math.cos(y * 1.3) +
     0.2 * Math.sin(x * 0.8 - y * 1.6 + z * 1.1);
 
-  // ~65% of the planet has grass
-  return v > 0.35;
+  const threshold = 1 - Math.max(0, Math.min(1, coverage));
+  return v > threshold;
 }
