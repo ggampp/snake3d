@@ -498,6 +498,7 @@ class Game {
       this.snake.setDifficulty(this.score);
       const moving = this.input.forward;
       this.snake.update(dt, this.input.steer, moving);
+      this.grass.update(dt, this.snake.segments, this.snake.heading, this.snake.thickness);
 
       const headR = this.snake.thickness * 1.05;
       const headAngle = headR / this.planetRadius;
