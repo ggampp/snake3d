@@ -65,8 +65,10 @@ src/
 │   ├── Audio.js        efeitos sonoros sintetizados (Web Audio)
 │   └── Leaderboard.js  placar com backend plugável (local hoje, online depois)
 ├── world/
-│   ├── Planet.js         esfera + atmosfera (fresnel): textura real OU shader procedural
+│   ├── Planet.js         esfera + atmosfera (fresnel): textura real, elemental OU procedural
 │   ├── PlanetTextures.js mapas reais dos planetas (loader com cache + atribuição)
+│   ├── ElementalTextures.js mapas procedurais dos mundos de água/fogo/gelo (noise 3D)
+│   ├── SnakeTrail.js     marcas que a cobra deixa na superfície (decals instanciados)
 │   ├── Levels.js         dados das fases (campanha) + temas de planeta reutilizáveis
 │   ├── Sky.js            campo de estrelas + nebulosa (fbm noise)
 │   └── Grass.js          tufos instanciados (distribuição de Fibonacci)
@@ -75,7 +77,7 @@ src/
 │   ├── TubeBody.js    gera o tubo (frames paralelos, com afinamento)
 │   ├── Snake.js       cobra do jogador (olhos, comer, colisão, escudo/turbo/pulo)
 │   ├── SnakeSkins.js  presets de skin (cores, bandas) + materiais com escamas
-│   ├── SnakeTexture.js textura procedural de escamas (bump map em canvas)
+│   ├── SnakeTexture.js escamas procedurais (cor + relevo + brilho em canvas)
 │   ├── EnemyWorm.js   minhoca inimiga com IA de perambulação
 │   ├── EnergyField.js bolas de energia temporárias (pool fixo de luzes)
 │   ├── PowerUpField.js power-ups escudo/turbo (orbe + anel giratório)
@@ -90,13 +92,18 @@ da comida, atmosfera por *fresnel* e tone mapping ACES.
 
 ### Fases e planetas
 
-A **campanha** encadeia fases, e cada fase é um **planeta real diferente**
-(tamanho + textura): Terra, Marte, Lua, Vênus e Júpiter. Cada planeta usa um
-mapa equiretangular aplicado na esfera (`src/world/PlanetTextures.js`); a
-Terra mantém a **grama** que se deita quando a cobra passa, e os demais corpos
-ficam só com a rocha/gás texturizado (look *híbrido*). No **modo livre** dá
-para escolher qualquer superfície (inclusive Mercúrio ou a Pradaria procedural)
-em qualquer tamanho de planeta. Tudo é orientado por dados em
+A **campanha** encadeia fases, e cada fase é um **planeta diferente**: os
+mundos reais (Terra, Marte, Lua, Vênus, Júpiter) usam mapas equiretangulares
+aplicados na esfera com **relevo** (a própria textura vira bump map), e os
+três **mundos elementais** — Aquária (água), Glacius (gelo) e Vulcânia
+(fogo/lava com rachaduras incandescentes) — são gerados por **noise 3D
+procedural** (`src/world/ElementalTextures.js`), com oceano animado e lava
+pulsante. A Terra mantém a **grama** que se deita quando a cobra passa, e em
+**todo planeta a cobra deixa um rastro**: trilha de poeira comprimida nos
+mundos rochosos, ondulações na água, sulco no gelo e crosta resfriada na lava
+(`src/world/SnakeTrail.js`). No **modo livre** dá para escolher qualquer
+superfície (inclusive os mundos elementais ou a Pradaria procedural) em
+qualquer tamanho de planeta. Tudo é orientado por dados em
 `src/world/Levels.js` — adicionar/ajustar uma fase não exige mexer no engine.
 
 As texturas dos planetas são do **[Solar System Scope](https://www.solarsystemscope.com/textures/)**,

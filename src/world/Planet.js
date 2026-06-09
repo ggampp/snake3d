@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { loadPlanetTexture } from './PlanetTextures.js';
+import { getElementalMaps } from './ElementalTextures.js';
 
 const DEFAULT_THEME = {
   surface: { grass: 0x5a8530, dirt: 0x6a4a2e, patchScale: 3.0, brightness: 1.6 },
@@ -29,11 +30,21 @@ export class Planet {
   _buildSurface() {
     const geo = new THREE.SphereGeometry(this.radius, 96, 96);
 
-    // Textured planet: use the real surface map directly.
+    // Elemental planet (water / fire / ice): fully procedural PBR map set.
+    if (this.theme.element) {
+      this._buildElementalSurface(geo);
+      return;
+    }
+
+    // Textured planet: use the real surface map directly. The same map doubles
+    // as a bump map (luminance ≈ height) so mountains and craters catch the
+    // light instead of reading as a flat decal.
     const map = this.theme.texture ? loadPlanetTexture(this.theme.texture) : null;
     if (map) {
       const mat = new THREE.MeshStandardMaterial({
         map,
+        bumpMap: map,
+        bumpScale: this.theme.surface?.bump ?? 0.4,
         roughness: this.theme.surface?.roughness ?? 0.95,
         metalness: 0.0,
       });
@@ -100,6 +111,37 @@ export class Planet {
     this.group.add(this.mesh);
   }
 
+  _buildElementalSurface(geo) {
+    const element = this.theme.element;
+    const maps = getElementalMaps(element); // null in headless environments
+
+    // Fallback tints when there is no DOM to generate canvases on.
+    const FALLBACK = { water: 0x10568c, fire: 0x2a1410, ice: 0xcfe4f2 };
+
+    const mat = new THREE.MeshStandardMaterial({
+      color: maps ? 0xffffff : FALLBACK[element] ?? 0x888888,
+      map: maps?.map ?? null,
+      bumpMap: maps?.bumpMap ?? null,
+      bumpScale: element === 'water' ? 0.35 : 0.6,
+      roughnessMap: maps?.roughnessMap ?? null,
+      roughness: 1.0, // the roughness map carries the variation
+      metalness: element === 'water' ? 0.1 : 0.0,
+    });
+
+    if (element === 'fire' && maps?.emissiveMap) {
+      mat.emissive = new THREE.Color(0xffffff);
+      mat.emissiveMap = maps.emissiveMap;
+      mat.emissiveIntensity = 1.2;
+    }
+
+    this.mesh = new THREE.Mesh(geo, mat);
+    this.mesh.receiveShadow = true;
+    this.group.add(this.mesh);
+
+    this._element = element;
+    this._elemTime = 0;
+  }
+
   _buildAtmosphere() {
     const geo = new THREE.SphereGeometry(this.radius * 1.32, 64, 64);
     const mat = new THREE.ShaderMaterial({
@@ -140,5 +182,19 @@ export class Planet {
 
   update(dt) {
     if (this._surfaceUniforms) this._surfaceUniforms.uTime.value += dt;
+
+    if (this._element) {
+      this._elemTime += dt;
+      const mat = this.mesh.material;
+      if (this._element === 'water' && mat.bumpMap) {
+        // Waves drift over the (static) color map → living ocean.
+        mat.bumpMap.offset.x += dt * 0.006;
+        mat.bumpMap.offset.y = Math.sin(this._elemTime * 0.18) * 0.0035;
+      } else if (this._element === 'fire' && mat.emissiveMap) {
+        // Slow molten breathing, with a faster flicker on top.
+        mat.emissiveIntensity =
+          1.15 + 0.3 * Math.sin(this._elemTime * 1.7) + 0.08 * Math.sin(this._elemTime * 6.3);
+      }
+    }
   }
 }
