@@ -6,6 +6,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { Planet } from './world/Planet.js';
 import { Sky } from './world/Sky.js';
 import { Grass } from './world/Grass.js';
+import { SnakeTrail } from './world/SnakeTrail.js';
 import { LEVELS, PLANET_THEMES, getUnlocked, setUnlocked } from './world/Levels.js';
 import { Snake } from './entities/Snake.js';
 import { EnergyField } from './entities/EnergyField.js';
@@ -32,6 +33,7 @@ const FREE_THEME = {
   atmosphere: 0x6ad6ff,
   sky: { top: 0x0a0f1f, bottom: 0x05060d, glow: 0x3a2a5a },
   grass: { color: 0x4b7a1e, coverage: 0.65, density: 1.0 },
+  trail: { style: 'press', color: 0x9a8868, life: 6 },
 };
 
 const MAX_ENEMIES   = 6;
@@ -193,6 +195,9 @@ class Game {
     this.grass = new Grass(this.planetRadius * 1.001, this._grassCount(this.planetRadius), this.theme.grass);
     this.planet.group.add(this.grass.mesh);
 
+    this.trail = new SnakeTrail(this.planetRadius, this.theme.trail);
+    this.planet.group.add(this.trail.mesh);
+
     const sun = new THREE.DirectionalLight(0xfff1dc, 2.0);
     sun.position.set(40, 30, 20);
     this.scene.add(sun);
@@ -318,6 +323,8 @@ class Game {
     this.worldObjects.push(this.planet.group);
     this.grass = new Grass(radius * 1.001, this._grassCount(radius), theme.grass);
     this.planet.group.add(this.grass.mesh);
+    this.trail = new SnakeTrail(radius, theme.trail);
+    this.planet.group.add(this.trail.mesh);
     this.sky.setColors(theme.sky);
 
     this.snake = new Snake(radius, skinKey);
@@ -385,6 +392,7 @@ class Game {
     this.hud.setGoal(this.mode === 'campaign' ? { collected: 0, goal: this.goal, name: LEVELS[this.levelIndex].name } : null);
     this.snake.reset();
     this.chase.reset();
+    this.trail.reset();
     this.energy.reset();
     this.powerups.reset();
     this.shieldUntil = 0;
@@ -499,6 +507,7 @@ class Game {
       const moving = this.input.forward;
       this.snake.update(dt, this.input.steer, moving);
       this.grass.update(dt, this.snake.segments, this.snake.heading, this.snake.thickness);
+      this.trail.update(dt, this.snake.position, this.snake.thickness, !this.snake.isJumping);
 
       const headR = this.snake.thickness * 1.05;
       const headAngle = headR / this.planetRadius;

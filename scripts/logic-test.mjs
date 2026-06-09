@@ -18,6 +18,7 @@ import { EnergyField } from '../src/entities/EnergyField.js';
 import { PowerUpField } from '../src/entities/PowerUpField.js';
 import { LEVELS, PLANET_THEMES, getUnlocked, setUnlocked } from '../src/world/Levels.js';
 import { PLANET_TEXTURES } from '../src/world/PlanetTextures.js';
+import { SnakeTrail } from '../src/world/SnakeTrail.js';
 
 let failures = 0;
 const ok = (cond, msg) => {
@@ -200,22 +201,70 @@ const ok = (cond, msg) => {
   }
 }
 
-// 15. Planet textures: every level/theme points at a real, registered texture.
+// 15. Planet surfaces: every level/theme is either a real registered texture
+//     or a procedural elemental world (water / fire / ice).
 {
   const validKeys = Object.keys(PLANET_TEXTURES);
+  const elements = ['water', 'fire', 'ice'];
   ok(validKeys.length >= 5, `texture registry has the planet maps (${validKeys.length})`);
   ok(
-    LEVELS.every((l) => validKeys.includes(l.texture)),
-    'every campaign level references a known planet texture'
+    LEVELS.every((l) => validKeys.includes(l.texture) || elements.includes(l.element)),
+    'every campaign level has a known texture or elemental surface'
   );
   ok(
-    Object.values(PLANET_THEMES).every((t) => validKeys.includes(t.texture)),
-    'every planet theme references a known planet texture'
+    Object.values(PLANET_THEMES).every(
+      (t) => validKeys.includes(t.texture) || elements.includes(t.element)
+    ),
+    'every planet theme has a known texture or elemental surface'
   );
   // Hybrid look: exactly the habitable world keeps grass, the rest are bare.
   const grassy = LEVELS.filter((l) => (l.grass?.coverage ?? 0) > 0);
   ok(grassy.length >= 1 && grassy.every((l) => l.texture === 'earth'),
     'only habitable (Earth) levels keep grass');
+}
+
+// 16. Elemental planets exist, reach the campaign, and every theme has a trail.
+{
+  ok(
+    PLANET_THEMES.agua?.element === 'water' &&
+      PLANET_THEMES.fogo?.element === 'fire' &&
+      PLANET_THEMES.gelo?.element === 'ice',
+    'água/fogo/gelo elemental themes are defined'
+  );
+  ok(
+    ['water', 'fire', 'ice'].every((e) => LEVELS.some((l) => l.element === e)),
+    'campaign includes the water, fire and ice worlds'
+  );
+  ok(
+    Object.values(PLANET_THEMES).every((t) => t.trail && t.trail.style && t.trail.life > 0),
+    'every planet theme defines a snake-trail style'
+  );
+  ok(
+    PLANET_THEMES.agua.trail.style === 'ripple',
+    'the water world uses ripple (wake) trail marks'
+  );
+}
+
+// 17. Snake trail: stamps marks along the path and fades them out over time.
+{
+  const trail = new SnakeTrail(20, { style: 'press', color: 0x8a7a5a, life: 2 });
+  const snake = new Snake(20);
+  const live = () => trail._ages.reduce((n, a) => n + (a !== Infinity ? 1 : 0), 0);
+
+  ok(live() === 0, 'trail starts with no marks');
+  for (let i = 0; i < 60; i++) {
+    snake.update(0.05, 0, true);
+    trail.update(0.05, snake.position, snake.thickness, !snake.isJumping);
+  }
+  const after = live();
+  ok(after > 3, `marks are stamped while the snake moves (${after} live)`);
+
+  // Standing still: no new marks, old ones expire after `life` seconds.
+  for (let i = 0; i < 60; i++) trail.update(0.05, snake.position, snake.thickness, true);
+  ok(live() === 0, 'marks fade away after their lifetime');
+
+  trail.reset();
+  ok(live() === 0 && trail._lastSpawn === null, 'reset clears the trail');
 }
 
 console.log(failures === 0 ? '\nALL TESTS PASSED' : `\n${failures} TEST(S) FAILED`);
