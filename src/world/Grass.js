@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { MeshStandardNodeMaterial } from 'three/webgpu';
+import { positionLocal, uv, time, sin, cos, vec3, float, attribute, instanceIndex } from 'three/tsl';
 import { surfaceOrientation, anyTangent } from '../core/SphereMath.js';
 
 /**
@@ -18,13 +20,22 @@ export class Grass {
     const blade = new THREE.ConeGeometry(0.06, 0.55, 4, 1, true);
     blade.translate(0, 0.275, 0); // pivot at base so rotation tilts tip, not base
 
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new MeshStandardNodeMaterial({
       color: 0xffffff, // per-instance color multiplies this
       roughness: 1.0,
       metalness: 0.0,
       side: THREE.DoubleSide,
       flatShading: true,
     });
+
+    // Wind sway: blade tips (high UV.y on the cone) drift on a sine wave.
+    // Per-instance hash desyncs neighbouring blades so the field shimmers.
+    const hash = float(instanceIndex).mul(0.137).sin().mul(43758.5453).fract();
+    const heightFactor = uv().y.mul(uv().y); // quadratic — base stays planted
+    const phase = time.mul(1.6).add(hash.mul(6.2831));
+    const swayX = sin(phase).mul(heightFactor).mul(0.09);
+    const swayZ = cos(phase.mul(0.7)).mul(heightFactor).mul(0.06);
+    mat.positionNode = positionLocal.add(vec3(swayX, float(0), swayZ));
 
     this.mesh = new THREE.InstancedMesh(blade, mat, count);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -35,12 +46,16 @@ export class Grass {
     this._bladePos   = new Float32Array(count * 3); // world base position
     this._bladeQuat  = new Float32Array(count * 4); // upright orientation
     this._bladeScale = new Float32Array(count * 3); // per-blade scale
+    this._bladeTint  = new Float32Array(count * 3); // per-blade base RGB
     this._flatness   = new Float32Array(count);     // 0=upright … 1=flat
     this._stayTime   = new Float32Array(count);     // hold-flat timer (seconds)
     this._tiltDir    = new Float32Array(count * 3); // world tangent: which way to tilt
 
     this._baseColor    = new THREE.Color(grassColorHex);
     this._crushedColor = new THREE.Color(0x8f7e2a); // dried / yellowed
+    // Slight yellow-green variation, picked per blade below.
+    this._varA = new THREE.Color(grassColorHex).lerp(new THREE.Color(0xc6d840), 0.18);
+    this._varB = new THREE.Color(grassColorHex).lerp(new THREE.Color(0x2c5a14), 0.22);
 
     const pos     = new THREE.Vector3();
     const heading = new THREE.Vector3();
@@ -92,7 +107,12 @@ export class Grass {
 
       m.compose(pos, quat, scale);
       this.mesh.setMatrixAt(placed, m);
-      this.mesh.setColorAt(placed, this._baseColor);
+      // Per-blade green with mild yellow-green variation for a richer field.
+      const tint = new THREE.Color().lerpColors(this._varB, this._varA, Math.random());
+      this._bladeTint[placed * 3]     = tint.r;
+      this._bladeTint[placed * 3 + 1] = tint.g;
+      this._bladeTint[placed * 3 + 2] = tint.b;
+      this.mesh.setColorAt(placed, tint);
 
       placed++;
     }
@@ -213,7 +233,10 @@ export class Grass {
         this.mesh.setMatrixAt(i, m);
 
         // Blade yellows as it flattens, greens again as it recovers
-        col.lerpColors(this._baseColor, this._crushedColor, f);
+        const tr = this._bladeTint[i * 3];
+        const tg = this._bladeTint[i * 3 + 1];
+        const tb = this._bladeTint[i * 3 + 2];
+        col.setRGB(tr, tg, tb).lerp(this._crushedColor, f);
         this.mesh.setColorAt(i, col);
       }
     }
