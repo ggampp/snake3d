@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MeshPhysicalNodeMaterial } from 'three/webgpu';
 import { getScaleMaps } from './SnakeTexture.js';
 
 /**
@@ -83,21 +84,38 @@ export function makeSkinMaterials(skinKey) {
   const s = SKINS[skinKey] || SKINS.cosmic;
   const vertexColors = !!s.bands;
 
-  const bodyMat = new THREE.MeshStandardMaterial({
+  const iridescent = skinKey === 'cosmic' || skinKey === 'blue';
+  const sheenColor = new THREE.Color(s.headColor).lerp(new THREE.Color(0xffffff), 0.4);
+
+  const bodyMat = new MeshPhysicalNodeMaterial({
     color: vertexColors ? 0xffffff : s.bodyColor,
     emissive: new THREE.Color(s.bodyEmissive),
     emissiveIntensity: s.emissiveIntensity,
     roughness: s.roughness,
     metalness: s.metalness,
     vertexColors,
+    clearcoat: 0.6,
+    clearcoatRoughness: 0.25,
+    sheen: 0.5,
+    sheenColor,
+    sheenRoughness: 0.6,
+    iridescence: iridescent ? 0.8 : 0.0,
+    iridescenceIOR: 1.3,
   });
 
-  const headMat = new THREE.MeshStandardMaterial({
+  const headMat = new MeshPhysicalNodeMaterial({
     color: s.headColor,
     emissive: new THREE.Color(s.headEmissive),
     emissiveIntensity: s.emissiveIntensity * 1.3,
     roughness: s.roughness,
     metalness: s.metalness,
+    clearcoat: 0.6,
+    clearcoatRoughness: 0.25,
+    sheen: 0.5,
+    sheenColor,
+    sheenRoughness: 0.6,
+    iridescence: iridescent ? 0.8 : 0.0,
+    iridescenceIOR: 1.3,
   });
 
   // Procedural scale maps: albedo detail (multiplies the skin color), keeled
