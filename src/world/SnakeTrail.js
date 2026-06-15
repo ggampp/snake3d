@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MeshBasicNodeMaterial } from 'three/webgpu';
 import { arcDistance } from '../core/SphereMath.js';
 
 const _Z = new THREE.Vector3(0, 0, 1);
@@ -30,7 +31,9 @@ export class SnakeTrail {
       ? new THREE.RingGeometry(0.55, 0.9, 24)
       : new THREE.CircleGeometry(0.9, 18);
 
-    const mat = new THREE.MeshBasicMaterial({
+    // Node-based basic material so the trail participates in the bloom MRT
+    // pass on the emissive channel (soft glow when ripples are additive).
+    const mat = new MeshBasicNodeMaterial({
       color: 0xffffff,
       blending: ripple ? THREE.AdditiveBlending : THREE.MultiplyBlending,
       transparent: true,
@@ -39,6 +42,11 @@ export class SnakeTrail {
       polygonOffsetFactor: -2,
       polygonOffsetUnits: -2,
     });
+    if (ripple) {
+      // Ripples get a small emissive contribution so the bloom pass picks them up.
+      mat.emissive = new THREE.Color(cfg.color ?? 0x88ddff);
+      mat.emissiveIntensity = 0.6;
+    }
 
     this.mesh = new THREE.InstancedMesh(geo, mat, count);
     this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
