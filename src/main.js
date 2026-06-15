@@ -1,7 +1,7 @@
 import * as THREE from 'three';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { WebGPURenderer, PostProcessing } from 'three/webgpu';
+import { pass, mrt, output, emissive } from 'three/tsl';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
 
 import { Planet } from './world/Planet.js';
 import { Sky } from './world/Sky.js';
@@ -59,6 +59,7 @@ class Game {
     this._initRenderer();
     this._initScene();
     this._initPost();
+    this._usingWebGPU = this.renderer.isWebGPURenderer === true;
 
     this.input       = new Input(this.canvas);
     this.audio       = new AudioFx();
@@ -86,9 +87,18 @@ class Game {
 
     this._refreshBoard();
     this.hud.showStart(this._board);
-    this._loop();
+    this._startLoop();
 
     if (typeof window !== 'undefined') window.__game = this;
+  }
+
+  async _startLoop() {
+    try {
+      if (this.renderer.init) await this.renderer.init();
+    } catch (e) {
+      console.warn('Renderer init failed, falling back:', e);
+    }
+    this._loop();
   }
 
   _wireControls() {
@@ -167,15 +177,30 @@ class Game {
   }
 
   _initRenderer() {
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: this.canvas,
-      antialias: true,
-      powerPreference: 'high-performance',
-    });
+    const hasWebGPU = typeof navigator !== 'undefined' && !!navigator.gpu;
+    if (hasWebGPU) {
+      try {
+        this.renderer = new WebGPURenderer({
+          canvas: this.canvas,
+          antialias: true,
+          powerPreference: 'high-performance',
+        });
+      } catch (e) {
+        console.warn('WebGPURenderer construction failed; falling back to WebGL', e);
+        this.renderer = null;
+      }
+    }
+    if (!this.renderer) {
+      this.renderer = new THREE.WebGLRenderer({
+        canvas: this.canvas,
+        antialias: true,
+        powerPreference: 'high-performance',
+      });
+    }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.15;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
   }
 
@@ -198,13 +223,11 @@ class Game {
     this.trail = new SnakeTrail(this.planetRadius, this.theme.trail);
     this.planet.group.add(this.trail.mesh);
 
-    const sun = new THREE.DirectionalLight(0xfff1dc, 2.0);
+    const sun = new THREE.DirectionalLight(0xffe6c2, 2.1);
     sun.position.set(40, 30, 20);
     this.scene.add(sun);
-    this.scene.add(new THREE.AmbientLight(0x4a5a7a, 0.7));
-    const rim = new THREE.DirectionalLight(0x66ccff, 0.6);
-    rim.position.set(-30, -10, -20);
-    this.scene.add(rim);
+    const hemi = new THREE.HemisphereLight(0x88b6ff, 0x3a2e22, 0.9);
+    this.scene.add(hemi);
 
     const skinKey = localStorage.getItem('snake3d.skin') || 'cosmic';
     this.snake = new Snake(this.planetRadius, skinKey);
@@ -357,13 +380,17 @@ class Game {
   }
 
   _initPost() {
-    this.composer = new EffectComposer(this.renderer);
-    this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(
-      new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.55, 0.6, 0.5
-    );
-    this.composer.addPass(this.bloom);
+    // Node-based post-processing — works on both WebGPU and WebGL backends.
+    this.postProcessing = new PostProcessing(this.renderer);
+    const scenePass = pass(this.scene, this.camera);
+    scenePass.setMRT(mrt({
+      output,
+      emissive,
+    }));
+    const outputPass = scenePass.getTextureNode('output');
+    const emissivePass = scenePass.getTextureNode('emissive');
+    const bloomPass = bloom(emissivePass, 0.7, 0.6, 0.5);
+    this.postProcessing.outputNode = outputPass.add(bloomPass);
   }
 
   async _refreshBoard() {
@@ -600,7 +627,11 @@ class Game {
     requestAnimationFrame(() => this._loop());
     const dt = Math.min(this.clock.getDelta(), 0.05);
     this._update(dt);
-    this.composer.render();
+    if (this.postProcessing) {
+      this.postProcessing.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   _onResize() {
@@ -609,8 +640,6 @@ class Game {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
-    this.composer.setSize(w, h);
-    this.bloom.setSize(w, h);
   }
 }
 
