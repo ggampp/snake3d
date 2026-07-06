@@ -531,8 +531,7 @@ class Game {
       this.snake.setTurbo(turboRemain > 0);
 
       this.snake.setDifficulty(this.score);
-      const moving = this.input.forward;
-      this.snake.update(dt, this.input.steer, moving);
+      this.snake.update(dt, this.input.steer, true);
       this.grass.update(dt, this.snake.segments, this.snake.heading, this.snake.thickness);
       this.trail.update(dt, this.snake.position, this.snake.thickness, !this.snake.isJumping);
 
