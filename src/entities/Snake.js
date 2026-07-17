@@ -60,19 +60,30 @@ export class Snake extends Crawler {
     this._radiusScaleFn = null;
 
     this._addEyes();
+    this._addTongue();
     this._addShield();
   }
 
   _addEyes() {
+    const skin = SKINS[this.skinKey] || SKINS.cosmic;
+    // Pale reptile iris with a vertical slit pupil (slither-charts style).
     const eyeGeo = new THREE.SphereGeometry(0.15, 12, 12);
     const eyeMat = new THREE.MeshStandardMaterial({
-      color: 0x050e0e,
-      roughness: 0.3,
+      color: skin.eye ?? 0xf6e7a2,
+      emissive: skin.eye ?? 0xf6e7a2,
+      emissiveIntensity: 0.35,
+      roughness: 0.25,
+      metalness: 0.0,
+    });
+    const pupilGeo = new THREE.SphereGeometry(0.09, 10, 10);
+    const pupilMat = new THREE.MeshStandardMaterial({
+      color: skin.pupil ?? 0x120b04,
+      roughness: 0.15,
       metalness: 0.1,
     });
-    // glossy pupil highlight
-    const pupilGeo = new THREE.SphereGeometry(0.07, 8, 8);
-    const pupilMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.5 });
+    // small glossy catchlight
+    const glintGeo = new THREE.SphereGeometry(0.035, 6, 6);
+    const glintMat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 1.6 });
 
     this.eyeL = new THREE.Mesh(eyeGeo, eyeMat);
     this.eyeR = new THREE.Mesh(eyeGeo, eyeMat);
@@ -80,14 +91,75 @@ export class Snake extends Crawler {
     this.eyeL.position.set(-0.55, 0.28, 0.75);
     this.eyeR.position.set(0.55, 0.28, 0.75);
 
-    const pl = new THREE.Mesh(pupilGeo, pupilMat);
-    const pr = new THREE.Mesh(pupilGeo, pupilMat);
-    pl.position.set(0.06, 0.06, 0.1);
-    pr.position.set(-0.06, 0.06, 0.1);
-    this.eyeL.add(pl);
-    this.eyeR.add(pr);
+    for (const [eye, sideX] of [[this.eyeL, 1], [this.eyeR, -1]]) {
+      const pupil = new THREE.Mesh(pupilGeo, pupilMat);
+      // flattened into a vertical slit, pushed to the front of the iris
+      pupil.scale.set(0.3, 1.0, 0.55);
+      pupil.position.set(sideX * 0.05, 0, 0.085);
+      eye.add(pupil);
+      const glint = new THREE.Mesh(glintGeo, glintMat);
+      glint.position.set(sideX * 0.02, 0.07, 0.13);
+      eye.add(glint);
+    }
 
     this.headMesh.add(this.eyeL, this.eyeR);
+    this._blinkSeed = Math.random() * 10;
+  }
+
+  /** Forked tongue that flicks out of the snout every couple of seconds. */
+  _addTongue() {
+    const skin = SKINS[this.skinKey] || SKINS.cosmic;
+    const mat = new THREE.MeshStandardMaterial({
+      color: skin.tongue ?? 0xe4573d,
+      emissive: skin.tongue ?? 0xe4573d,
+      emissiveIntensity: 0.7,
+      roughness: 0.4,
+    });
+
+    const stemGeo = new THREE.CylinderGeometry(0.05, 0.065, 0.95, 6);
+    stemGeo.rotateX(Math.PI / 2);
+    stemGeo.translate(0, 0, 0.475); // grows forward from the mouth
+    const stem = new THREE.Mesh(stemGeo, mat);
+
+    const forkGeo = new THREE.CylinderGeometry(0.028, 0.045, 0.42, 5);
+    forkGeo.rotateX(Math.PI / 2);
+    forkGeo.translate(0, 0, 0.21);
+    const forkL = new THREE.Mesh(forkGeo, mat);
+    const forkR = new THREE.Mesh(forkGeo, mat);
+    forkL.position.set(0, 0, 0.95);
+    forkR.position.set(0, 0, 0.95);
+    forkL.rotation.y = 0.45;
+    forkR.rotation.y = -0.45;
+
+    this.tongue = new THREE.Group();
+    this.tongue.add(stem, forkL, forkR);
+    // snout in head-local space (z = forward, slightly below the eyes)
+    this.tongue.position.set(0, -0.1, 1.05);
+    this.tongue.visible = false;
+    this._tongueSeed = Math.random() * 10;
+    this.headMesh.add(this.tongue);
+  }
+
+  /** Tongue flick + blink cycles, driven by wall-clock time like the shield. */
+  _updateFace() {
+    const t = performance.now() * 0.001;
+
+    // Flick: short sin burst every ~2.1–3.7 s (per-snake rhythm).
+    const cycle = 2.1 + (this._tongueSeed % 1) * 1.6;
+    const ph = ((t + this._tongueSeed * 13.7) % cycle) / cycle;
+    const flick = ph < 0.16 ? Math.sin((ph / 0.16) * Math.PI) : 0;
+    if (flick > 0.05) {
+      this.tongue.visible = true;
+      this.tongue.scale.set(1, 1, 0.35 + 0.65 * flick);
+    } else {
+      this.tongue.visible = false;
+    }
+
+    // Blink: quick vertical squash of both eyes every few seconds.
+    const blinkPh = ((t * 0.45 + this._blinkSeed * 3.1) % 3.7) / 3.7;
+    const squash = blinkPh > 0.97 ? 0.15 : 1;
+    this.eyeL.scale.y = squash;
+    this.eyeR.scale.y = squash;
   }
 
   _addShield() {
@@ -171,6 +243,7 @@ export class Snake extends Crawler {
     this._updateBulges(dt);
     this.step(dt, steer, moving);
     this._placeShield();
+    this._updateFace();
   }
 
   /** Advance swallow bulges head→tail and build the radius-scale function. */
