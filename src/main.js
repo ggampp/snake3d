@@ -222,6 +222,7 @@ class Game {
       this.hemi.intensity = 0.9;
       this.renderer.toneMappingExposure = 1.15;
     }
+    if (this.sky) this.sky.setDaylight(mode);
   }
 
   _initScene() {

@@ -236,10 +236,11 @@ html, body {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-  max-width: 380px;
-  width: 90vw;
-  max-height: 90vh;
+  max-width: 460px;
+  width: 92vw;
+  max-height: 92vh;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .overlay-eyebrow {
@@ -299,6 +300,7 @@ html, body {
 
 .skin-options {
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
 }
