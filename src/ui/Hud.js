@@ -28,6 +28,7 @@ export class Hud {
     this.boardMode  = document.getElementById('board-mode');
     this.skinName   = document.getElementById('skin-name');
     this.menuView   = document.getElementById('menu-view');
+    this.ambientSel = document.getElementById('ambient-light');
     this.planetSize = document.getElementById('planet-size');
     this.freeSurface = document.getElementById('free-surface');
 
@@ -70,6 +71,7 @@ export class Hud {
     this.onLevelChange = null;
     this.onNextLevel = null;
     this.onFreeSurfaceChange = null;
+    this.onAmbientChange = null;
 
     this._mode = 'campaign';
     this._initModeControls();
@@ -173,6 +175,13 @@ export class Hud {
         if (this.onFreeSurfaceChange) this.onFreeSurfaceChange(this.freeSurface.value);
       });
     }
+    if (this.ambientSel) {
+      this.ambientSel.value = localStorage.getItem('snake3d.ambient') || 'day';
+      this.ambientSel.addEventListener('change', () => {
+        localStorage.setItem('snake3d.ambient', this.ambientSel.value);
+        if (this.onAmbientChange) this.onAmbientChange(this.ambientSel.value);
+      });
+    }
   }
 
   _initSkinPicker() {
@@ -212,6 +221,10 @@ export class Hud {
 
   getFreeSurface() {
     return this.freeSurface?.value || 'pradaria';
+  }
+
+  getAmbient() {
+    return this.ambientSel?.value || 'day';
   }
 
   _persistName() {

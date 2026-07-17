@@ -109,6 +109,7 @@ class Game {
     this.hud.onMuteToggle = () => this.hud.setMuted(this.audio.toggleMute());
     this.hud.onZoom       = (d) => this.chase.addZoom(d);
     this.hud.onMenuViewChange = () => this._setMenuView();
+    this.hud.onAmbientChange  = (mode) => this._applyAmbient(mode);
 
     this.hud.onPlanetSizeChange = () => {
       if (this.state === 'playing' || this.state === 'paused') return;
@@ -204,6 +205,25 @@ class Game {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
   }
 
+  /** Day: warm bright sun. Night: dim cool moonlight and a darker frame. */
+  _applyAmbient(mode) {
+    if (mode === 'night') {
+      this.sun.color.setHex(0x9db9ff);
+      this.sun.intensity = 0.55;
+      this.hemi.color.setHex(0x2a3a66);
+      this.hemi.groundColor.setHex(0x0e0a14);
+      this.hemi.intensity = 0.35;
+      this.renderer.toneMappingExposure = 0.85;
+    } else {
+      this.sun.color.setHex(0xffe6c2);
+      this.sun.intensity = 2.1;
+      this.hemi.color.setHex(0x88b6ff);
+      this.hemi.groundColor.setHex(0x3a2e22);
+      this.hemi.intensity = 0.9;
+      this.renderer.toneMappingExposure = 1.15;
+    }
+  }
+
   _initScene() {
     this.scene  = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(62, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -223,11 +243,12 @@ class Game {
     this.trail = new SnakeTrail(this.planetRadius, this.theme.trail);
     this.planet.group.add(this.trail.mesh);
 
-    const sun = new THREE.DirectionalLight(0xffe6c2, 2.1);
-    sun.position.set(40, 30, 20);
-    this.scene.add(sun);
-    const hemi = new THREE.HemisphereLight(0x88b6ff, 0x3a2e22, 0.9);
-    this.scene.add(hemi);
+    this.sun = new THREE.DirectionalLight(0xffe6c2, 2.1);
+    this.sun.position.set(40, 30, 20);
+    this.scene.add(this.sun);
+    this.hemi = new THREE.HemisphereLight(0x88b6ff, 0x3a2e22, 0.9);
+    this.scene.add(this.hemi);
+    this._applyAmbient(localStorage.getItem('snake3d.ambient') || 'day');
 
     const skinKey = localStorage.getItem('snake3d.skin') || 'cosmic';
     this.snake = new Snake(this.planetRadius, skinKey);
